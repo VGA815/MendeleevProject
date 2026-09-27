@@ -1,0 +1,50 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[Ll]og/
+[Ll]ogs/
+artifacts/
+TestResults/
+*.trx
+coverage*.xml
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.rsuser
+*.userprefs
+
+# Secrets: only templates (*.example) live in Git (NFR-20)
+.env
+*.env
+!*.env.example
+deploy/.env
+deploy/panel/.env
+secrets/
+*.pem
+*.key
+!infra/**/*.key.example
+
+# Runtime state
+keys/
+data-protection/
+efbundle
+efbundle.exe
+
+# Ansible
+infra/ansible/inventory.ini
+infra/ansible/group_vars/all.yml
+infra/ansible/host_vars/
+*.retry
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data Protection keys of local runs
+.keys/
