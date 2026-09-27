@@ -1,0 +1,94 @@
+# Baseline hardening (ТЗ 40, роль node): deploy user with keys, no root and no passwords over SSH,
+# firewall with only the needed ports, fail2ban, automatic security updates (NFR-19, NFR-20).
+- name: Install base packages
+  ansible.builtin.apt:
+    name: [ufw, fail2ban, unattended-upgrades, ca-certificates, curl, jq, chrony]
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Deploy user
+  ansible.builtin.user:
+    name: "{{ deploy_user }}"
+    groups: sudo
+    append: true
+    shell: /bin/bash
+
+- name: Authorized keys
+  ansible.posix.authorized_key:
+    user: "{{ deploy_user }}"
+    key: "{{ item }}"
+  loop: "{{ deploy_authorized_keys }}"
+
+- name: Passwordless sudo for the deploy user
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ deploy_user }}"
+    content: "{{ deploy_user }} ALL=(ALL) NOPASSWD:ALL\n"
+    mode: "0440"
+    validate: "visudo -cf %s"
+
+- name: SSH hardening
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/10-hardening.conf
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PubkeyAuthentication yes
+      X11Forwarding no
+      MaxAuthTries 3
+    mode: "0644"
+  notify: Restart ssh
+
+- name: fail2ban for sshd
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.d/sshd.local
+    content: |
+      [sshd]
+      enabled = true
+      maxretry = 5
+      bantime = 1h
+    mode: "0644"
+  notify: Restart fail2ban
+
+- name: Automatic security updates
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    mode: "0644"
+
+- name: Firewall defaults
+  community.general.ufw:
+    direction: "{{ item.direction }}"
+    policy: "{{ item.policy }}"
+  loop:
+    - { direction: incoming, policy: deny }
+    - { direction: outgoing, policy: allow }
+
+- name: SSH from anywhere (fail2ban guards it)
+  community.general.ufw:
+    rule: limit
+    port: "22"
+    proto: tcp
+  when: ssh_allowed_sources | length == 0
+
+- name: SSH from the allowed sources only
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+    from_ip: "{{ item }}"
+  loop: "{{ ssh_allowed_sources }}"
+
+- name: Service ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port | string }}"
+    proto: "{{ item.proto }}"
+    from_ip: "{{ item.from | default('any') }}"
+  loop: "{{ firewall_rules | default([]) }}"
+
+- name: Enable firewall
+  community.general.ufw:
+    state: enabled

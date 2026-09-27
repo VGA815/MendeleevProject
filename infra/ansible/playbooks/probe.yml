@@ -1,0 +1,11 @@
+# Probes from Russian DCs (ТЗ 25, «Пробы»): every 5 minutes a real connection through every node and
+# transport, result pushed to Uptime Kuma. Catches «подключено, но данные не идут».
+#   ansible-playbook playbooks/probe.yml
+- name: Probe VPS
+  hosts: probes
+  become: true
+  roles:
+    - role: common
+      vars:
+        firewall_rules: []
+    - probe

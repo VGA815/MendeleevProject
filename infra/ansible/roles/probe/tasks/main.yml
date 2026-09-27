@@ -1,0 +1,71 @@
+# Probe agent: Xray client + curl through it, every 5 minutes (ТЗ 25, «Пробы»).
+- name: Xray client
+  ansible.builtin.unarchive:
+    src: "https://github.com/XTLS/Xray-core/releases/download/v{{ xray_version }}/Xray-linux-64.zip"
+    dest: /usr/local/bin
+    remote_src: true
+    include: [xray]
+    mode: "0755"
+
+- name: Probe directory
+  ansible.builtin.file:
+    path: /opt/probe
+    state: directory
+    mode: "0750"
+
+- name: Probe script
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../probes/probe.sh"
+    dest: /opt/probe/probe.sh
+    mode: "0750"
+
+- name: Probe targets
+  ansible.builtin.copy:
+    dest: /opt/probe/targets.json
+    content: "{{ probe_targets | to_nice_json }}"
+    mode: "0640"
+
+- name: Probe environment
+  ansible.builtin.copy:
+    dest: /opt/probe/probe.env
+    content: |
+      PROBE_NAME={{ probe_name }}
+      MYIP_URL={{ probe_myip_url }}
+      CONTROL_URL={{ probe_control_url }}
+    mode: "0640"
+
+- name: Probe service and timer
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}"
+    content: "{{ item.content }}"
+    mode: "0644"
+  loop:
+    - name: probe.service
+      content: |
+        [Unit]
+        Description=Mendeleev probe through every node and transport
+
+        [Service]
+        Type=oneshot
+        EnvironmentFile=/opt/probe/probe.env
+        ExecStart=/opt/probe/probe.sh /opt/probe/targets.json
+        TimeoutStartSec=240
+    - name: probe.timer
+      content: |
+        [Unit]
+        Description=Run the probe every 5 minutes
+
+        [Timer]
+        OnBootSec=1min
+        OnUnitActiveSec=5min
+        AccuracySec=10s
+
+        [Install]
+        WantedBy=timers.target
+
+- name: Probe timer is running
+  ansible.builtin.systemd:
+    name: probe.timer
+    state: started
+    enabled: true
+    daemon_reload: true

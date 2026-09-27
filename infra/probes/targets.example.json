@@ -1,0 +1,57 @@
+[
+  {
+    "name": "DE1-reality",
+    "node_ip": "203.0.113.10",
+    "kuma_push_url": "https://kuma.example-tech.com/api/push/REPLACE_ME",
+    "outbound": {
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "203.0.113.10",
+            "port": 443,
+            "users": [ { "id": "00000000-0000-0000-0000-000000000000", "encryption": "none", "flow": "xtls-rprx-vision" } ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "www.example.com",
+          "fingerprint": "chrome",
+          "publicKey": "REALITY_PUBLIC_KEY",
+          "shortId": "0123abcd"
+        }
+      }
+    }
+  },
+  {
+    "name": "DE1-xhttp",
+    "node_ip": "203.0.113.10",
+    "kuma_push_url": "https://kuma.example-tech.com/api/push/REPLACE_ME",
+    "outbound": {
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "203.0.113.10",
+            "port": 8443,
+            "users": [ { "id": "00000000-0000-0000-0000-000000000000", "encryption": "none" } ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "reality",
+        "xhttpSettings": { "path": "/xh", "mode": "auto" },
+        "realitySettings": {
+          "serverName": "www.example.com",
+          "fingerprint": "chrome",
+          "publicKey": "REALITY_PUBLIC_KEY",
+          "shortId": "0123abcd"
+        }
+      }
+    }
+  }
+]

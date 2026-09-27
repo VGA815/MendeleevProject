@@ -1,0 +1,16 @@
+# A node from scratch in 15–30 minutes (ТЗ 40, «Ноды: Ansible»; NFR-15):
+#   ansible-playbook playbooks/node.yml --limit node-de1
+- name: VPN node (Remnawave Node + Xray)
+  hosts: vpn
+  become: true
+  roles:
+    - role: common
+      vars:
+        firewall_rules:
+          - { port: "{{ vless_reality_port }}", proto: tcp }
+          - { port: "{{ vless_xhttp_port }}", proto: tcp }
+          - { port: "{{ remnawave_node_port }}", proto: tcp, from: "{{ remnawave_panel_ip }}" }
+          - { port: 9100, proto: tcp, from: "{{ monitoring_ip }}" }
+    - docker
+    - remnawave_node
+    - node_exporter

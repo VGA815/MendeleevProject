@@ -1,0 +1,40 @@
+{
+  "Name": "Mendeleev",
+  "GlobalProxy": "true",
+  "RemoteDNSType": "DoH",
+  "RemoteDNSDomain": "https://cloudflare-dns.com/dns-query",
+  "RemoteDNSIP": "1.1.1.1",
+  "DomesticDNSType": "DoU",
+  "DomesticDNSDomain": "",
+  "DomesticDNSIP": "77.88.8.8",
+  "Geoipurl": "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat",
+  "Geositeurl": "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat",
+  "DnsHosts": {},
+  "DirectSites": [
+    "geosite:category-ru",
+    "geosite:private",
+    "domain:ru",
+    "domain:xn--p1ai",
+    "domain:su",
+    "domain:gosuslugi.ru",
+    "domain:nalog.gov.ru",
+    "domain:sberbank.ru",
+    "domain:tbank.ru",
+    "domain:vtb.ru",
+    "domain:alfabank.ru",
+    "domain:ozon.ru",
+    "domain:wildberries.ru",
+    "domain:yandex.net",
+    "domain:vk.com"
+  ],
+  "DirectIp": [
+    "geoip:ru",
+    "geoip:private"
+  ],
+  "ProxySites": [],
+  "ProxyIp": [],
+  "BlockSites": [],
+  "BlockIp": [],
+  "DomainStrategy": "IPIfNonMatch",
+  "FakeDNS": "false"
+}

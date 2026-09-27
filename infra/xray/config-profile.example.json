@@ -1,0 +1,59 @@
+{
+  "log": {
+    "loglevel": "warning",
+    "access": "none"
+  },
+  "inbounds": [
+    {
+      "tag": "VLESS_REALITY",
+      "listen": "0.0.0.0",
+      "port": 443,
+      "protocol": "vless",
+      "settings": { "clients": [], "decryption": "none" },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "target": "www.example.com:443",
+          "serverNames": [ "www.example.com" ],
+          "privateKey": "REALITY_PRIVATE_KEY",
+          "shortIds": [ "0123abcd" ]
+        }
+      },
+      "sniffing": { "enabled": true, "destOverride": [ "http", "tls", "quic" ] }
+    },
+    {
+      "tag": "VLESS_XHTTP",
+      "listen": "0.0.0.0",
+      "port": 8443,
+      "protocol": "vless",
+      "settings": { "clients": [], "decryption": "none" },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": { "path": "/xh", "mode": "auto" },
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "target": "www.example.com:443",
+          "serverNames": [ "www.example.com" ],
+          "privateKey": "REALITY_PRIVATE_KEY",
+          "shortIds": [ "0123abcd" ]
+        }
+      },
+      "sniffing": { "enabled": true, "destOverride": [ "http", "tls", "quic" ] }
+    }
+  ],
+  "outbounds": [
+    { "tag": "DIRECT", "protocol": "freedom" },
+    { "tag": "BLOCK", "protocol": "blackhole" }
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      { "type": "field", "protocol": [ "bittorrent" ], "outboundTag": "BLOCK" },
+      { "type": "field", "port": "25,465,587", "outboundTag": "BLOCK" },
+      { "type": "field", "ip": [ "geoip:private" ], "outboundTag": "BLOCK" }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+# Remnawave Node runs Xray; the inbounds, keys and logging come from the panel's config profile
+# (see infra/xray/config-profile.example.json: access log off, abuse blocks).
+- name: Node directory
+  ansible.builtin.file:
+    path: /opt/remnanode
+    state: directory
+    mode: "0750"
+
+- name: Node compose file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: /opt/remnanode/docker-compose.yml
+    mode: "0640"
+  register: node_compose
+
+- name: Node is up
+  community.docker.docker_compose_v2:
+    project_src: /opt/remnanode
+    state: present
+    pull: always
+    recreate: "{{ 'always' if node_compose.changed else 'auto' }}"

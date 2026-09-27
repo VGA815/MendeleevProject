@@ -1,0 +1,37 @@
+# Copy to group_vars/all.yml (ignored by Git) or encrypt with ansible-vault.
+
+deploy_user: deploy
+# Public keys allowed to log in; password and root logins are disabled (NFR-20).
+deploy_authorized_keys:
+  - "ssh-ed25519 AAAA... techadmin"
+# SSH only from these addresses (empty = any, with fail2ban).
+ssh_allowed_sources: []
+
+# ── Nodes ────────────────────────────────────────────────────────────────────────────────────────
+remnawave_node_tag: "latest"          # pin the version (ТЗ 11)
+remnawave_node_port: 2222              # node API, open only to the panel
+remnawave_panel_ip: "192.0.2.50"
+# SECRET_KEY shown by the panel when the node is added
+remnawave_node_secret_key: "CHANGE_ME"
+
+vless_reality_port: 443
+vless_xhttp_port: 8443                 # decided on the prototype (ТЗ 25, «Транспорты»)
+
+monitoring_ip: "192.0.2.60"            # node_exporter is open only to it
+node_exporter_version: "1.9.1"
+
+# ── Probes ───────────────────────────────────────────────────────────────────────────────────────
+xray_version: "25.9.11"
+# Echo endpoint on the monitoring VPS: returns the caller's IP (ТЗ 32, «Мониторинг и алерты»).
+probe_myip_url: "https://mon.example-tech.com/ip"
+# A resource that is blocked in RU: opens only through a working node.
+probe_control_url: "https://www.youtube.com/generate_204"
+# Targets: one entry per node and transport. The probe user is a dedicated panel user without devices limit.
+probe_targets: []
+#  - name: DE1-reality
+#    node_ip: 203.0.113.10
+#    kuma_push_url: "https://kuma.example-tech.com/api/push/xxxx"
+#    outbound:
+#      protocol: vless
+#      settings: { vnext: [ { address: 203.0.113.10, port: 443, users: [ { id: "PROBE-UUID", encryption: none, flow: xtls-rprx-vision } ] } ] }
+#      streamSettings: { network: tcp, security: reality, realitySettings: { serverName: "www.example.com", publicKey: "PUB", shortId: "abcd", fingerprint: chrome } }

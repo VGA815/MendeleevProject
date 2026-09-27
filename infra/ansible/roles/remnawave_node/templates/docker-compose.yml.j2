@@ -1,0 +1,16 @@
+# Managed by Ansible (role remnawave_node). Node {{ node_code }}.
+services:
+  remnanode:
+    container_name: remnanode
+    hostname: remnanode
+    image: remnawave/node:{{ remnawave_node_tag }}
+    network_mode: host
+    restart: always
+    environment:
+      - NODE_PORT={{ remnawave_node_port }}
+      - SECRET_KEY={{ remnawave_node_secret_key }}
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "7"
