@@ -1,0 +1,50 @@
+using Mendeleev.SharedKernel;
+using Mendeleev.Web.Bot;
+using Mendeleev.Web.Bot.Content;
+using Mendeleev.Web.Bot.Infrastructure;
+
+namespace Mendeleev.UnitTests.Web
+{
+    public class BotTests
+    {
+        [Theory]
+        [InlineData("/start", "/start", "")]
+        [InlineData("/find 123456", "/find", "123456")]
+        [InlineData("/find@my_bot  u42 ", "/find", "u42")]
+        [InlineData("/STAFF add 1 support Иван", "/staff", "add 1 support Иван")]
+        [InlineData("просто текст", "", "просто текст")]
+        public void ParseCommand(string text, string command, string arguments)
+        {
+            UpdateRouter.ParseCommand(text.Trim()).ShouldBe((command, arguments));
+        }
+
+        [Fact]
+        public void RateLimiter_Allows20PerMinute_WarnsOnce_ThenDrops()
+        {
+            // FR-BOT-15: 30 clicks a minute are not processed beyond the limit.
+            var clock = new MovableClock(new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc));
+            var limiter = new BotRateLimiter(clock);
+
+            Enumerable.Range(0, 20).Select(_ => limiter.Check(1)).ShouldAllBe(d => d == RateDecision.Allow);
+            limiter.Check(1).ShouldBe(RateDecision.Warn);
+            Enumerable.Range(0, 9).Select(_ => limiter.Check(1)).ShouldAllBe(d => d == RateDecision.Drop);
+            limiter.Check(2).ShouldBe(RateDecision.Allow);
+
+            clock.UtcNow = clock.UtcNow.AddMinutes(1);
+            limiter.Check(1).ShouldBe(RateDecision.Allow);
+        }
+
+        [Fact]
+        public void TextRenderer_EncodesValues_NotTemplates()
+        {
+            string text = TextRenderer.Render("<b>{name}</b> до {date}", ("name", "<script>"), ("date", new DateTime(2026, 11, 9, 9, 0, 0, DateTimeKind.Utc)));
+
+            text.ShouldBe("<b>&lt;script&gt;</b> до 09.11.2026 12:00");
+        }
+
+        private sealed class MovableClock(DateTime start) : IDateTimeProvider
+        {
+            public DateTime UtcNow { get; set; } = start;
+        }
+    }
+}

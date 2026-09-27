@@ -1,0 +1,22 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".dockerignore" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Mendeleev.SharedKernel/Mendeleev.SharedKernel.csproj" />
+    <Project Path="src/Mendeleev.Domain/Mendeleev.Domain.csproj" />
+    <Project Path="src/Mendeleev.Application/Mendeleev.Application.csproj" />
+    <Project Path="src/Mendeleev.Infrastructure/Mendeleev.Infrastructure.csproj" />
+    <Project Path="src/Mendeleev.Web/Mendeleev.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Mendeleev.UnitTests/Mendeleev.UnitTests.csproj" />
+    <Project Path="tests/Mendeleev.ArchitectureTests/Mendeleev.ArchitectureTests.csproj" />
+    <Project Path="tests/Mendeleev.IntegrationTests/Mendeleev.IntegrationTests.csproj" />
+  </Folder>
+</Solution>
