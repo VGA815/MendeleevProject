@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mendeleev.SharedKernel\Mendeleev.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>
