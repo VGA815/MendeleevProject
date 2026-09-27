@@ -1,0 +1,15 @@
+@page
+@inject IOptions<ServiceOptions> Service
+@{
+    ViewData["Title"] = "Главная";
+    string botUrl = Service.Value.BotUrl;
+}
+@* TODO: формулировки главной согласовать с владельцем и юристом — реклама VPN и популяризация обхода
+   блокировок запрещены (ТЗ 27, опросник 3.3). Инструкции по подключению — только после входа. *@
+<h1>@Service.Value.Name</h1>
+<p>Сервис частного сетевого доступа по подписке. Подписка оформляется и продлевается в нашем Telegram-боте.</p>
+@if (!string.IsNullOrEmpty(botUrl))
+{
+    <p><a class="button" href="@botUrl" rel="noopener">Открыть бота</a></p>
+}
+<p class="muted">Условия — в <a href="/offer">оферте</a>, стоимость — на странице <a href="/prices">цен</a>.</p>

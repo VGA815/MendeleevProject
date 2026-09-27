@@ -1,0 +1,30 @@
+@page "/dev/fake-pay/{orderId:guid}"
+@model FakePayModel
+@{
+    ViewData["Title"] = "Тестовая оплата";
+    ViewData["NoIndex"] = true;
+}
+<h1>Тестовая оплата</h1>
+<p class="muted">Страница фейкового агрегатора для локальной разработки и стейджинга. В продакшене её нет.</p>
+
+@if (Model.Payment is null)
+{
+    <p>Платёж не найден (фейковый агрегатор хранит платежи в памяти до перезапуска).</p>
+}
+else
+{
+    <p>Заказ <code>@Model.Payment.OrderId</code><br />
+       Сумма: <b>@Model.Payment.Amount @Model.Payment.Currency</b><br />
+       Статус: <b>@Model.Payment.State</b></p>
+
+    @if (Model.Message is not null)
+    {
+        <p><b>@Model.Message</b></p>
+    }
+
+    <form method="post">
+        <p><button class="button" name="action" value="pay">Оплатить (с вебхуком)</button></p>
+        <p><button class="button" name="action" value="pay-silent">Оплатить без вебхука — проверит быстрая проверка</button></p>
+        <p><button class="button" name="action" value="cancel">Отменить</button></p>
+    </form>
+}

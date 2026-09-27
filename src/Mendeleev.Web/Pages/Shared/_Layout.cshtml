@@ -1,0 +1,47 @@
+@inject IOptions<ServiceOptions> Service
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    @if (ViewData["NoIndex"] is true)
+    {
+        <meta name="robots" content="noindex, nofollow" />
+    }
+    <title>@ViewData["Title"] — @Service.Value.Name</title>
+    @* No external fonts, scripts or analytics (FR-WEB-10). *@
+    <style>
+        :root { color-scheme: light dark; --fg: #1b1f24; --muted: #5b6470; --bg: #ffffff; --accent: #2458d6; --line: #e3e7ee; }
+        @@media (prefers-color-scheme: dark) { :root { --fg: #e8ebf0; --muted: #a2abb8; --bg: #12151a; --accent: #7fa4ff; --line: #2a303a; } }
+        * { box-sizing: border-box; }
+        body { margin: 0; font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--fg); background: var(--bg); }
+        header, main, footer { max-width: 760px; margin: 0 auto; padding: 16px; }
+        header { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: baseline; border-bottom: 1px solid var(--line); }
+        header .brand { font-weight: 700; font-size: 18px; margin-right: auto; color: var(--fg); text-decoration: none; }
+        a { color: var(--accent); }
+        nav a { margin-right: 14px; }
+        footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); margin-top: 32px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+        .button { display: inline-block; padding: 10px 16px; border-radius: 8px; background: var(--accent); color: #fff; text-decoration: none; border: 0; font: inherit; cursor: pointer; }
+        .muted { color: var(--muted); }
+    </style>
+</head>
+<body>
+    <header>
+        <a class="brand" href="/">@Service.Value.Name</a>
+        <nav>
+            <a href="/prices">Цены</a>
+            <a href="/offer">Оферта</a>
+            <a href="/privacy">Конфиденциальность</a>
+            <a href="/contacts">Контакты</a>
+        </nav>
+    </header>
+    <main>
+        @RenderBody()
+    </main>
+    <footer>
+        © @DateTime.UtcNow.Year @Service.Value.Name
+    </footer>
+</body>
+</html>

@@ -1,0 +1,20 @@
+@page "/contacts"
+@inject IOptions<SiteOptions> Site
+@inject IOptions<ServiceOptions> Service
+@{
+    ViewData["Title"] = "Контакты";
+}
+<h1>Контакты</h1>
+<p><b>@Site.Value.OperatorName</b></p>
+@if (!string.IsNullOrWhiteSpace(Site.Value.OperatorDetails))
+{
+    <p style="white-space: pre-line">@Site.Value.OperatorDetails</p>
+}
+@if (!string.IsNullOrWhiteSpace(Site.Value.SupportEmail))
+{
+    <p>Поддержка: <a href="mailto:@Site.Value.SupportEmail">@Site.Value.SupportEmail</a></p>
+}
+@if (!string.IsNullOrEmpty(Service.Value.BotUrl))
+{
+    <p>Telegram-бот: <a href="@Service.Value.BotUrl" rel="noopener">@Service.Value.BotUrl</a></p>
+}

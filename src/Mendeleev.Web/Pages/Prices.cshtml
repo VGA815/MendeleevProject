@@ -1,0 +1,30 @@
+@page "/prices"
+@model PricesModel
+@{
+    ViewData["Title"] = "Цены";
+}
+<h1>Цены</h1>
+@if (Model.Tariffs.Count == 0)
+{
+    <p>Продажи скоро откроются.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr><th>Тариф</th><th>Срок</th><th>Устройств</th><th>Цена</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var tariff in Model.Tariffs)
+            {
+                <tr>
+                    <td>@tariff.Name</td>
+                    <td>@tariff.PeriodDays дн.</td>
+                    <td>до @tariff.DeviceLimit</td>
+                    <td>@tariff.Price.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) ₽</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <p class="muted">Оплата картой или через СБП на странице платёжного сервиса. Продление прибавляет срок к текущему. Автосписаний нет.</p>
+}
