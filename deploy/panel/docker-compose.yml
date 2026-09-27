@@ -1,0 +1,73 @@
+# Remnawave panel on its own VPS abroad, next to the nodes (ТЗ 10, решение 24.09).
+# Its API is reachable only from the management VPS IP (firewall, see infra/ansible role panel_firewall);
+# the UI — only through an SSH tunnel or an admin VPN (ТЗ 31, «Доступ к админкам»).
+# Versions are pinned: Remnawave 3.x changes fast, update only after the adapter's contract tests (ТЗ 11).
+name: remnawave
+
+services:
+  remnawave:
+    image: remnawave/backend:${REMNAWAVE_TAG}
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      # Published on the public interface but closed by the firewall except for the management VPS.
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      remnawave-db:
+        condition: service_healthy
+      remnawave-redis:
+        condition: service_healthy
+    volumes:
+      - valkey-socket:/var/run/valkey
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "7"
+
+  remnawave-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - remnawave-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  remnawave-redis:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    command: ["valkey-server", "--save", "", "--appendonly", "no", "--unixsocket", "/var/run/valkey/valkey.sock", "--unixsocketperm", "777", "--port", "0"]
+    volumes:
+      - valkey-socket:/var/run/valkey
+    healthcheck:
+      test: ["CMD", "valkey-cli", "-s", "/var/run/valkey/valkey.sock", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging: *logging
+
+  # TLS for the API; the management VPS calls https://<panel domain>.
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - "443:443"
+    environment:
+      PANEL_DOMAIN: ${PANEL_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    logging: *logging
+
+volumes:
+  remnawave-db-data:
+  valkey-socket:
+  caddy-data:

@@ -1,0 +1,72 @@
+# TLS and reverse proxy on the management VPS (ТЗ 40, «Домены и TLS»). DNS: Cloudflare, DNS only.
+# Reserve domains are served from day one, so switching is a DNS change (runbook «Заблокирован домен»).
+
+{
+	# Caddy is the edge: it does not trust X-Forwarded-For from clients; the app trusts Caddy's.
+	email {$ACME_EMAIL}
+}
+
+(common) {
+	encode zstd gzip
+	header -Server
+	# /metrics is internal only (ТЗ 30): never proxied.
+	@metrics path /metrics /metrics/*
+	respond @metrics 404
+}
+
+# Site and cabinet. Webhooks are not accepted here on purpose.
+{$SITE_DOMAIN}, {$SITE_DOMAIN_RESERVE} {
+	import common
+	header Strict-Transport-Security "max-age=31536000"
+	@webhooks path /webhooks/*
+	respond @webhooks 404
+	reverse_proxy app:8080
+	log {
+		output file /data/logs/site.log {
+			roll_size 20MiB
+			roll_keep_for 168h
+		}
+	}
+}
+
+# Unpublished technical domain: Telegram, the aggregator and the panel keep delivering
+# even if the site domain is blocked (решение 24.09).
+{$WEBHOOK_DOMAIN} {
+	import common
+	@allowed path /webhooks/* /health/ready /health/live
+	handle @allowed {
+		request_body {
+			max_size 256KB
+		}
+		reverse_proxy app:8080
+	}
+	respond 404
+	log {
+		output file /data/logs/webhooks.log {
+			roll_size 20MiB
+			roll_keep_for 168h
+		}
+	}
+}
+
+# Subscription links. The path is the user's secret: it is masked in the logs (ТЗ 31).
+{$SUB_DOMAIN}, {$SUB_DOMAIN_RESERVE} {
+	import common
+	header Referrer-Policy no-referrer
+	header X-Robots-Tag "noindex, nofollow"
+	reverse_proxy subscription-page:3010
+	log {
+		output file /data/logs/subscriptions.log {
+			roll_size 20MiB
+			roll_keep_for 168h
+		}
+		format filter {
+			wrap json
+			fields {
+				request>uri replace /***
+				request>headers>X-Hwid delete
+				request>headers>Cookie delete
+			}
+		}
+	}
+}

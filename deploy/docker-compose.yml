@@ -1,0 +1,127 @@
+# Management VPS in the Russian DC (ТЗ 40, «Управляющий VPS: состав»):
+# caddy, app, postgres, subscription-page, backup. Secrets only in deploy/.env (chmod 600), never in Git.
+#
+# Release (ТЗ 40, «Сборка и поставка»):
+#   docker compose pull app migrator
+#   docker compose run --rm migrator          # EF migration bundle, before the switch
+#   docker compose up -d app
+#   ./scripts/wait-ready.sh || rollback to the previous APP_TAG
+
+name: mendeleev
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN}
+      SITE_DOMAIN_RESERVE: ${SITE_DOMAIN_RESERVE}
+      SUB_DOMAIN: ${SUB_DOMAIN}
+      SUB_DOMAIN_RESERVE: ${SUB_DOMAIN_RESERVE}
+      WEBHOOK_DOMAIN: ${WEBHOOK_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+      - subscription-page
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "7"
+
+  app:
+    image: ${REGISTRY}/mendeleev-app:${APP_TAG}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Database: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_APP_USER};Password=${POSTGRES_APP_PASSWORD}
+      DataProtection__KeysPath: /keys
+      BotContent__Path: /app/content/bot.yaml
+    volumes:
+      - app-keys:/keys
+      - ./content:/app/content:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging: *logging
+
+  migrator:
+    image: ${REGISTRY}/mendeleev-migrator:${APP_TAG}
+    profiles: ["tools"]
+    environment:
+      # Migrations run as the owner role; the app runs as mendeleev_app without DDL rights.
+      ConnectionStrings__Database: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+
+  subscription-page:
+    image: remnawave/subscription-page:${SUBSCRIPTION_PAGE_TAG}
+    restart: unless-stopped
+    environment:
+      APP_PORT: 3010
+      REMNAWAVE_PANEL_URL: ${REMNAWAVE_PANEL_URL}
+      REMNAWAVE_API_TOKEN: ${SUBSCRIPTION_PAGE_API_TOKEN}
+      TRUST_PROXY: 1
+    logging: *logging
+
+  backup:
+    build: ./backup
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_CRON: ${BACKUP_CRON:-15 3 * * *}
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_REGION: ${S3_REGION}
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      KUMA_PUSH_URL: ${BACKUP_KUMA_PUSH_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  caddy-data:
+  caddy-config:
+  app-keys:
+  postgres-data:

@@ -1,0 +1,4 @@
+{$PANEL_DOMAIN} {
+	# Firewall already limits 443 to the management VPS and the admins' addresses.
+	reverse_proxy remnawave:3000
+}
