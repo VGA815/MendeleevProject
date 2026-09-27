@@ -1,0 +1,93 @@
+# ТЗ 40, «Сборка и поставка»: build → tests (xUnit + Testcontainers) → vulnerable packages → image →
+# private registry, tagged with the commit. Release to the VPS is deploy/scripts/release.sh over SSH.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore MendeleevProject.slnx
+
+      - name: Build
+        run: dotnet build MendeleevProject.slnx -c Release --no-restore
+
+      # Integration tests start PostgreSQL through Testcontainers — Docker is available on the runner.
+      - name: Test
+        run: dotnet test MendeleevProject.slnx -c Release --no-build --logger "trx;LogFilePrefix=results"
+
+      - name: Vulnerable packages
+        run: |
+          dotnet list MendeleevProject.slnx package --vulnerable --include-transitive | tee vulnerable.txt
+          if grep -q "has the following vulnerable packages" vulnerable.txt; then
+            echo "::error::Vulnerable NuGet packages found"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: "**/TestResults/*.trx"
+
+  lint-infra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck deploy/backup/*.sh deploy/scripts/*.sh deploy/postgres/init/*.sh infra/probes/*.sh infra/scripts/*.sh infra/routing/*.sh
+      - name: Caddyfile
+        run: docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" -e SITE_DOMAIN=a.test -e SITE_DOMAIN_RESERVE=b.test -e SUB_DOMAIN=c.test -e SUB_DOMAIN_RESERVE=d.test -e WEBHOOK_DOMAIN=e.test -e ACME_EMAIL=x@a.test caddy:2.10-alpine caddy validate --config /etc/caddy/Caddyfile
+
+  images:
+    needs: [build-test, lint-infra]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Service image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/Mendeleev.Web/Dockerfile
+          target: final
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/mendeleev-app:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Migration bundle image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/Mendeleev.Web/Dockerfile
+          target: migrator
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/mendeleev-migrator:${{ github.sha }}
+          cache-from: type=gha
