@@ -7,13 +7,15 @@ using Mendeleev.Domain.Subscriptions;
 using Mendeleev.Domain.Users;
 using Mendeleev.SharedKernel;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Mendeleev.Application.Devices.ResetDevices
 {
     /// <summary>
     /// «Сбросить все устройства» by the user: not more than twice in 30 days (FR-PNL-10). Devices register
     /// again at the next subscription update in the client. The panel is called directly, not through the
-    /// outbox: if it is down, the user is told so instead of a silently queued reset.
+    /// outbox: if it is down, the user is told so instead of a silently queued reset. The limit is checked
+    /// under the user's row lock: a double click or the bot and the cabinet at once cannot make a third reset.
     /// </summary>
     public sealed record ResetDevicesCommand(long UserId) : ICommand<DevicesResetResult>;
 
@@ -27,7 +29,9 @@ namespace Mendeleev.Application.Devices.ResetDevices
     {
         public async Task<Result<DevicesResetResult>> Handle(ResetDevicesCommand command, CancellationToken cancellationToken)
         {
-            User? user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == command.UserId, cancellationToken);
+            await using IDbContextTransaction transaction = await db.BeginTransactionAsync(cancellationToken);
+
+            User? user = await db.LockUserAsync(command.UserId, cancellationToken);
             if (user is null)
             {
                 return UserErrors.NotFound(command.UserId);
@@ -69,6 +73,7 @@ namespace Mendeleev.Application.Devices.ResetDevices
 
             db.DeviceResets.Add(DeviceReset.ByUser(user.Id, removed, now));
             await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
 
             resets.Add(now);
             return new DevicesResetResult(removed, DeviceReset.NextUserResetAvailableAt(resets, now));
