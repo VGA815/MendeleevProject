@@ -26,6 +26,7 @@ namespace Mendeleev.Application.Abstractions.Data
         DbSet<Notification> Notifications { get; }
         DbSet<Broadcast> Broadcasts { get; }
         DbSet<TrafficDaily> TrafficDaily { get; }
+        DbSet<LinkCode> LinkCodes { get; }
 
         /// <summary>
         /// Saves the changes and, in the same transaction, the domain events raised by the tracked

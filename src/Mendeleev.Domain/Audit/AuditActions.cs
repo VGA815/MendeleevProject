@@ -22,5 +22,6 @@ namespace Mendeleev.Domain.Audit
         public const string PaymentsReconciled = "payments.reconciled";
         public const string PaymentFromBlockedUser = "payment.blocked_user";
         public const string TorrentBlockerReport = "abuse.torrent_blocker";
+        public const string AccountsMerged = "account.merged";
     }
 }

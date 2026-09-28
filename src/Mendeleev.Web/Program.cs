@@ -18,7 +18,7 @@ builder.Host.UseSerilog((context, logger) => logger.ReadFrom.Configuration(conte
 builder.Services
     .AddApplication()
     .AddInfrastructure(builder.Configuration)
-    .AddPresentation(builder.Configuration)
+    .AddPresentation(builder.Configuration, builder.Environment)
     .AddEndpoints(Assembly.GetExecutingAssembly());
 
 WebApplication app = builder.Build();
@@ -42,7 +42,12 @@ app.UseSerilogRequestLogging(options =>
         : Serilog.Events.LogEventLevel.Information;
 });
 
+// Only the cabinet's own script and nothing else: no third-party scripts, fonts or analytics (FR-WEB-10).
+app.UseStaticFiles();
+
 app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapEndpoints();
@@ -56,7 +61,7 @@ app.MapPrometheusScrapingEndpoint("/metrics")
             ? Results.NotFound()
             : await next(context));
 
-app.MapGet("robots.txt", () => Results.Text("User-agent: *\nDisallow: /cabinet\nDisallow: /pay\nDisallow: /dev\n", "text/plain"))
+app.MapGet("robots.txt", () => Results.Text("User-agent: *\nDisallow: /cabinet\nDisallow: /pay\nDisallow: /login\nDisallow: /register\nDisallow: /dev\n", "text/plain"))
     .ExcludeFromDescription();
 
 await app.RunAsync();

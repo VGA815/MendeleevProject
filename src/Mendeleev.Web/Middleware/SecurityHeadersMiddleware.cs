@@ -17,8 +17,11 @@ namespace Mendeleev.Web.Middleware
                 headers["Referrer-Policy"] = "no-referrer";
                 headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
 
+                // The cabinet, sign-in and registration: not indexed and never cached — the key and the
+                // subscription link must not stay in a shared cache (ТЗ 27, «Индексация»).
                 PathString path = context.Request.Path;
-                if (path.StartsWithSegments("/pay") || path.StartsWithSegments("/dev") || path.StartsWithSegments("/cabinet"))
+                if (path.StartsWithSegments("/pay") || path.StartsWithSegments("/dev") || path.StartsWithSegments("/cabinet")
+                    || path.StartsWithSegments("/login") || path.StartsWithSegments("/register") || path.StartsWithSegments("/logout"))
                 {
                     headers["X-Robots-Tag"] = "noindex, nofollow";
                     headers["Cache-Control"] = "no-store";

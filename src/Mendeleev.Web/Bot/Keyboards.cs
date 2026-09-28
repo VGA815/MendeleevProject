@@ -23,6 +23,7 @@ namespace Mendeleev.Web.Bot
         public const string Faq = "faq:";
         public const string Key = "key";
         public const string KeyIssue = "key!";
+        public const string LinkCode = "lnk";
         public const string Qr = "qr";
         public const string Noop = "nop";
     }

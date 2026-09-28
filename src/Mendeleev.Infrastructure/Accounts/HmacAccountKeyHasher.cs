@@ -24,6 +24,10 @@ namespace Mendeleev.Infrastructure.Accounts
         public string Hash(AccountKey key) =>
             Convert.ToHexStringLower(HMACSHA256.HashData(_pepper, Encoding.ASCII.GetBytes(key.Digits)));
 
+        // A prefix separates the domains: a code can never hash to the same value as a key.
+        public string HashLinkCode(string code) =>
+            Convert.ToHexStringLower(HMACSHA256.HashData(_pepper, Encoding.ASCII.GetBytes("link:" + code)));
+
         private static byte[] Decode(string pepper)
         {
             if (string.IsNullOrWhiteSpace(pepper))

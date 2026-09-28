@@ -1,0 +1,21 @@
+@page "/login"
+@model LoginModel
+@{
+    ViewData["Title"] = "Вход";
+    ViewData["NoIndex"] = true;
+}
+<h1>Вход по ключу аккаунта</h1>
+<p>Ключ — 16 цифр. Его выдаёт бот в разделе «Вход на сайт» или сайт при регистрации. Пробелы и дефисы можно не убирать.</p>
+@if (Model.Error is string error)
+{
+    <div class="notice error">@error</div>
+}
+<form method="post">
+    <input type="hidden" name="returnUrl" value="@Request.Query["returnUrl"]" />
+    <label for="accountKey">Ключ аккаунта</label>
+    @* type=password: the key is a password and must not stay on screen or in the form history. *@
+    <input id="accountKey" name="accountKey" type="password" class="code" inputmode="numeric" autocomplete="current-password"
+           placeholder="1234 5678 9012 3456" maxlength="40" required autofocus />
+    <div class="actions"><button type="submit" class="button">Войти</button></div>
+</form>
+<p class="muted">Нет ключа? <a href="/register">Создайте аккаунт</a> или получите ключ в Telegram-боте. Потеряли ключ — перевыпустите его в боте.</p>

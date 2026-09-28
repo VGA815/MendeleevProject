@@ -1,0 +1,78 @@
+@page "/cabinet"
+@model Mendeleev.Web.Pages.Cabinet.IndexModel
+@using Mendeleev.Domain.Subscriptions
+@using Mendeleev.Web.Bot.Content
+@{
+    ViewData["Title"] = "Личный кабинет";
+    var sub = Model.Subscription;
+}
+@if (Model.Account.IsBlocked)
+{
+    <h1>Аккаунт заблокирован</h1>
+    <div class="notice error">Аккаунт заблокирован, обратитесь в поддержку.</div>
+}
+else
+{
+<h1>Моя подписка</h1>
+@if (!sub.Exists)
+{
+    <p>У вас пока нет подписки.</p>
+    <div class="actions"><a class="button" href="/cabinet/pay">Оформить подписку</a></div>
+}
+else
+{
+    <table>
+        <tbody>
+            <tr><th>Тариф</th><td>@sub.TariffName</td></tr>
+            <tr><th>Статус</th><td>@Model.StatusText</td></tr>
+            @if (sub.ExpiresAt is DateTime expiresAt)
+            {
+                <tr><th>Действует до</th><td>@TextRenderer.FormatDate(expiresAt) (МСК)</td></tr>
+            }
+            <tr><th>Осталось дней</th><td>@sub.DaysLeft</td></tr>
+            @if (sub.TrafficLimitBytes is long limit && sub.TrafficLeftBytes is long left)
+            {
+                <tr><th>Осталось трафика</th><td>@TextRenderer.FormatBytes(left) из @TextRenderer.FormatBytes(limit)</td></tr>
+            }
+        </tbody>
+    </table>
+
+    @if (sub.Status == SubscriptionStatus.Expired)
+    {
+        <div class="notice">Подписка закончилась. Продлите в течение 30 дней — ссылка останется прежней.</div>
+    }
+    else if (sub.Status == SubscriptionStatus.Disabled)
+    {
+        <div class="notice error">Доступ приостановлен — напишите в поддержку.</div>
+    }
+    @if (sub.AccessPending)
+    {
+        <div class="notice">Доступ активируется в течение нескольких минут. Обновите страницу чуть позже.</div>
+    }
+
+    @if (sub.SubscriptionUrl is string url)
+    {
+        <h2>Ссылка-подписка</h2>
+        <div class="panel">
+            <p class="link" id="subscription-link">@url</p>
+            <div class="actions">
+                <button type="button" class="button secondary" data-copy="@url">Скопировать ссылку</button>
+                <a class="button" href="@Model.ImportUrl" rel="noopener noreferrer">Добавить в Happ</a>
+            </div>
+            <img class="qr" src="@Model.QrDataUri" alt="QR-код ссылки-подписки" width="220" height="220" />
+            <p class="muted">Отсканируйте QR-код в приложении на другом устройстве. Не пересылайте ссылку другим людям: по ней подключаются к вашей подписке.</p>
+        </div>
+        <p><a href="/cabinet/instructions">Инструкции по подключению</a></p>
+    }
+
+    <div class="actions"><a class="button" href="/cabinet/pay">Продлить</a></div>
+}
+
+@if (!Model.Account.HasTelegram)
+{
+    <div class="panel">
+        <p><b>Привяжите Telegram</b> — бот будет напоминать о продлении, а потерянный ключ можно будет перевыпустить в боте.</p>
+        <a href="/cabinet/link-telegram">Привязать Telegram</a>
+    </div>
+}
+}

@@ -1,0 +1,61 @@
+@page "/cabinet/devices"
+@model Mendeleev.Web.Pages.Cabinet.DevicesModel
+@using Mendeleev.Web.Bot.Content
+@{
+    ViewData["Title"] = "Устройства";
+}
+<h1>Устройства</h1>
+@if (Model.Error is string error)
+{
+    <div class="notice error">@error</div>
+}
+@if (Model.Reset is { } reset)
+{
+    <div class="notice ok">Устройства сброшены: @reset.Removed. Они подключатся заново при следующем обновлении подписки в приложении.</div>
+}
+@if (Model.Devices is { } view)
+{
+    <p>Подключено @view.Devices.Count из @view.DeviceLimit.</p>
+    @if (view.Devices.Count == 0)
+    {
+        <p class="muted">Пока нет подключённых устройств.</p>
+    }
+    else
+    {
+        <table>
+            <thead><tr><th>Устройство</th><th>Система</th><th>Добавлено (МСК)</th></tr></thead>
+            <tbody>
+                @foreach (var device in view.Devices)
+                {
+                    <tr>
+                        <td>@(device.DeviceModel ?? "—")</td>
+                        <td>@device.Platform @device.OsVersion</td>
+                        <td>@TextRenderer.FormatDate(device.CreatedAt)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (view.NextResetAvailableAtUtc is DateTime next)
+    {
+        <p class="muted">Следующий сброс доступен с @TextRenderer.FormatDate(next) (МСК). Сброс — не чаще 2 раз за 30 дней.</p>
+    }
+    else if (view.Devices.Count > 0)
+    {
+        @if (Model.Confirming)
+        {
+            <div class="panel">
+                <p>Сбросить все устройства? Они подключатся заново при следующем обновлении подписки в приложении. Сброс доступен не чаще 2 раз за 30 дней.</p>
+                <form method="post" class="actions">
+                    <button type="submit" class="button danger">Да, сбросить</button>
+                    <a href="/cabinet/devices">Отмена</a>
+                </form>
+            </div>
+        }
+        else
+        {
+            <div class="actions"><a class="button secondary" href="/cabinet/devices?confirm=true">Сбросить все устройства</a></div>
+        }
+    }
+}

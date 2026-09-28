@@ -9,5 +9,11 @@ namespace Mendeleev.Application.Abstractions.Accounts
     public interface IAccountKeyHasher
     {
         string Hash(AccountKey key);
+
+        /// <summary>
+        /// HMAC of a one-time code (ТЗ 21: «в БД — только хеш»). With the pepper, a database dump does not
+        /// let anyone enumerate the 10⁸ possible linking codes offline.
+        /// </summary>
+        string HashLinkCode(string code);
     }
 }

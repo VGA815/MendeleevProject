@@ -113,6 +113,9 @@ namespace Mendeleev.Web.Bot
                 case "/key":
                     await user.KeyAsync(context, cancellationToken);
                     break;
+                case "/link":
+                    await user.IssueLinkCodeAsync(context, cancellationToken);
+                    break;
                 default:
                     await user.MenuAsync(context, cancellationToken);
                     break;
@@ -220,6 +223,9 @@ namespace Mendeleev.Web.Bot
                     break;
                 case Cb.KeyIssue:
                     await user.IssueKeyAsync(context, cancellationToken);
+                    break;
+                case Cb.LinkCode:
+                    await user.IssueLinkCodeAsync(context, cancellationToken);
                     break;
                 case Cb.Qr:
                     await user.QrAsync(context, cancellationToken);

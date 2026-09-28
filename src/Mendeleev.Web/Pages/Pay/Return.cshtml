@@ -1,15 +1,49 @@
 @page "/pay/return"
+@model Mendeleev.Web.Pages.Pay.ReturnModel
+@using Mendeleev.Web.Pages.Pay
 @inject IOptions<ServiceOptions> Service
 @{
     ViewData["Title"] = "Оплата";
     ViewData["NoIndex"] = true;
 }
-@* Возврат со страницы агрегатора. Для пользователей бота итог приходит в бот; опрос статуса
-   каждые 3 секунды появится вместе с веб-кабинетом (ТЗ 27, «Кабинет»). *@
-<h1>Спасибо!</h1>
-<p>Оплата обрабатывается. Как только платёжный сервис подтвердит её, подписка продлится автоматически — обычно за несколько секунд, и бот пришлёт сообщение с новой датой.</p>
-<p>Если сообщение не пришло за несколько минут, нажмите «Проверить оплату» в боте или напишите в поддержку.</p>
-@if (!string.IsNullOrEmpty(Service.Value.BotUrl))
+@if (Model.Check is { } check && Model.PaymentId is Guid paymentId)
 {
-    <p><a class="button" href="@Service.Value.BotUrl" rel="noopener">Вернуться в бот</a></p>
+    string state = ReturnModel.StateOf(check);
+    <h1>Оплата</h1>
+    <div id="payment-status" data-payment-id="@paymentId" data-state="@state">
+        <div class="notice" data-when="pending" hidden="@(state != "pending")">Проверяем оплату…</div>
+        <div class="notice ok" data-when="succeeded" hidden="@(state != "succeeded")">
+            Оплата получена ✅ Подписка продлена.
+            <span data-when-access-pending hidden="@(!check.AccessPending)">Доступ активируется в течение нескольких минут.</span>
+        </div>
+        <div class="notice error" data-when="canceled" hidden="@(state != "canceled")">Платёж отменён или истёк. Создайте новый на странице оплаты.</div>
+        <div data-when="timeout" hidden>
+            <div class="notice">Оплата пока не подтвердилась. Если вы уже оплатили, подождите пару минут: подписка продлится автоматически.</div>
+        </div>
+        <div class="actions">
+            <a class="button secondary" href="/pay/return?paymentId=@paymentId" data-when-final-hide>Проверить ещё раз</a>
+            <a class="button" href="/cabinet">В кабинет</a>
+        </div>
+    </div>
+    <partial name="/Pages/Cabinet/_Support.cshtml" />
+}
+else
+{
+    <h1>Спасибо!</h1>
+    <p>Оплата обрабатывается. Как только платёжный сервис подтвердит её, подписка продлится автоматически — обычно за несколько секунд, и бот пришлёт сообщение с новой датой.</p>
+    <p>Если сообщение не пришло за несколько минут, нажмите «Проверить оплату» в боте или напишите в поддержку.</p>
+    @if (!string.IsNullOrEmpty(Service.Value.BotUrl))
+    {
+        <p><a class="button" href="@Service.Value.BotUrl" rel="noopener">Вернуться в бот</a></p>
+    }
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <p><a href="/cabinet">Перейти в кабинет</a></p>
+    }
+}
+@section Scripts {
+    @if (Model.Check is not null)
+    {
+        <script src="/js/cabinet.js" defer></script>
+    }
 }

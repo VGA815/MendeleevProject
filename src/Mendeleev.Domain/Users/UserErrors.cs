@@ -28,5 +28,23 @@ namespace Mendeleev.Domain.Users
         public static readonly Error NoTelegram = Error.Problem(
             "Users.NoTelegram",
             "Действие доступно только пользователям с Telegram.");
+
+        /// <summary>The same text for a wrong and for an unknown key: nothing to learn from it.</summary>
+        public static readonly Error WrongAccountKey = Error.Unauthorized(
+            "Users.WrongAccountKey",
+            "Неверный ключ аккаунта. Проверьте цифры и попробуйте ещё раз.");
+
+        public static readonly Error InvalidLinkCode = Error.Validation(
+            "Users.InvalidLinkCode",
+            "Код неверный или устарел. Получите новый код в боте: «Вход на сайт» → «Привязать аккаунт с сайта».");
+
+        public static readonly Error TelegramAlreadyLinked = Error.Conflict(
+            "Users.TelegramAlreadyLinked",
+            "К этому аккаунту уже привязан Telegram.");
+
+        /// <summary>Merge rule 3 (ТЗ 21, решение 24.09): manual merge is stage 2.</summary>
+        public static readonly Error MergeNeedsSupport = Error.Conflict(
+            "Users.MergeNeedsSupport",
+            "Подписка или платежи есть и в Telegram, и на сайте — автоматически объединить аккаунты нельзя. Напишите в поддержку, мы поможем.");
     }
 }

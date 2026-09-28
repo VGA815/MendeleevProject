@@ -1,0 +1,19 @@
+@using Mendeleev.Web.Bot.Content
+@inject IOptions<SiteOptions> Site
+@inject IOptionsMonitor<BotContent> Content
+@{
+    // FR-WEB-09: a contact that works without Telegram comes first.
+    string email = !string.IsNullOrWhiteSpace(Site.Value.SupportEmail) ? Site.Value.SupportEmail : Content.CurrentValue.SupportEmail;
+    string telegram = Content.CurrentValue.SupportUrl;
+}
+<p class="muted">
+    Поддержка:
+    @if (!string.IsNullOrWhiteSpace(email))
+    {
+        <a href="mailto:@email">@email</a>
+    }
+    @if (!string.IsNullOrWhiteSpace(telegram))
+    {
+        @(string.IsNullOrWhiteSpace(email) ? "" : " · ")<a href="@telegram" rel="noopener">в Telegram</a>
+    }
+</p>

@@ -1,0 +1,67 @@
+@page "/cabinet/pay"
+@model Mendeleev.Web.Pages.Cabinet.PayModel
+@{
+    ViewData["Title"] = "Оплата";
+    var ru = System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
+}
+@if (Model.Payment is { } payment)
+{
+    <h1>Оплата</h1>
+    <div class="panel">
+        <p><b>@payment.TariffName</b> — @payment.Amount.ToString("N0", ru) ₽ за @payment.Days дн.</p>
+        <p>Оплата картой или через СБП на странице платёжного сервиса. Срок прибавится к текущему.</p>
+        @if (payment.Reused)
+        {
+            <p class="muted">У вас уже есть неоплаченный платёж на этот тариф — используйте его.</p>
+        }
+        <div class="actions">
+            <a class="button" href="@payment.ConfirmationUrl" rel="noopener noreferrer">Перейти к оплате</a>
+            <a href="/pay/return?paymentId=@payment.PaymentId">Я оплатил — проверить</a>
+        </div>
+    </div>
+    <p class="muted">После оплаты платёжный сервис вернёт вас на сайт, и мы покажем результат. Подписка продлится автоматически — обычно за несколько секунд.</p>
+}
+else
+{
+    <h1>Тарифы и оплата</h1>
+    @if (Model.Error is string error)
+    {
+        <div class="notice error">@error</div>
+    }
+    @if (Model.Tariffs.Count == 0)
+    {
+        <p>Продажи скоро откроются. Если нужна помощь — напишите в поддержку.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr><th>Тариф</th><th>Срок</th><th>Устройств</th><th>Цена</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var tariff in Model.Tariffs)
+                {
+                    <tr>
+                        <td>@tariff.Name</td>
+                        <td>@tariff.PeriodDays дн.</td>
+                        <td>до @tariff.DeviceLimit</td>
+                        <td>
+                            @tariff.Price.ToString("N0", ru) ₽
+                            @if (tariff.PeriodDays > 31)
+                            {
+                                <br /><span class="muted">≈ @tariff.MonthlyEquivalent.ToString("N0", ru) ₽/мес</span>
+                            }
+                        </td>
+                        <td>
+                            <form method="post">
+                                <input type="hidden" name="tariff" value="@tariff.Code" />
+                                <button type="submit" class="button">Оплатить</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <p class="muted">Оплата картой или через СБП на странице платёжного сервиса. Продление прибавляет срок к текущему. Автосписаний нет.</p>
+    }
+}

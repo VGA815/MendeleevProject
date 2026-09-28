@@ -8,7 +8,8 @@ namespace Mendeleev.Application.Subscriptions.Maintenance
 {
     /// <summary>
     /// Daily clean-up by the retention table (ТЗ 12, «Хранение и очистка»): daily traffic and
-    /// notifications — 90 days, audit — 1 year. Payments are kept until the accountant answers how long.
+    /// notifications — 90 days, audit — 1 year, one-time codes — a day after they expire. Payments are kept
+    /// until the accountant answers how long.
     /// Technical tables (outbox, processed updates) are cleaned by the infrastructure itself.
     /// </summary>
     public sealed record RetentionCleanupCommand : ICommand<int>;
@@ -22,6 +23,7 @@ namespace Mendeleev.Application.Subscriptions.Maintenance
             DateOnly trafficBefore = DateOnly.FromDateTime(now.AddDays(-90));
             DateTime notificationsBefore = now.AddDays(-90);
             DateTime auditBefore = now.AddDays(-365);
+            DateTime codesBefore = now.AddDays(-1);
 
             int deleted = 0;
             deleted += await db.TrafficDaily.Where(t => t.Day < trafficBefore).ExecuteDeleteAsync(cancellationToken);
@@ -29,6 +31,7 @@ namespace Mendeleev.Application.Subscriptions.Maintenance
                 .Where(n => n.CreatedAt < notificationsBefore && n.Status != NotificationStatus.Pending)
                 .ExecuteDeleteAsync(cancellationToken);
             deleted += await db.AuditLog.Where(a => a.CreatedAt < auditBefore).ExecuteDeleteAsync(cancellationToken);
+            deleted += await db.LinkCodes.Where(c => c.ExpiresAt < codesBefore).ExecuteDeleteAsync(cancellationToken);
 
             return deleted;
         }

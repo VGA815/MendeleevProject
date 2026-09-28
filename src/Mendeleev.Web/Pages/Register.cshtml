@@ -1,0 +1,40 @@
+@page "/register"
+@model RegisterModel
+@{
+    ViewData["Title"] = "Регистрация";
+    ViewData["NoIndex"] = true;
+}
+@if (Model.AccountKey is string key)
+{
+    <h1>Ваш ключ аккаунта</h1>
+    <div class="panel">
+        <p class="secret">@key</p>
+        <div class="actions">
+            <button type="button" class="button secondary" data-copy="@key">Скопировать ключ</button>
+        </div>
+    </div>
+    <div class="notice error">
+        <p><b>Сохраните ключ в надёжном месте — мы показываем его один раз.</b></p>
+        <p>Ключ — единственный способ войти в аккаунт. Если потерять ключ и не привязать Telegram, восстановить доступ к аккаунту не получится.</p>
+    </div>
+    <form method="get" action="/cabinet">
+        <label class="check"><input type="checkbox" required /> <span>Я сохранил ключ</span></label>
+        <div class="actions"><button type="submit" class="button">Перейти в кабинет</button></div>
+    </form>
+}
+else
+{
+    <h1>Регистрация без Telegram</h1>
+    <p>Мы не спрашиваем имя, телефон или почту. Для входа вы получите <b>ключ аккаунта</b> — 16 цифр. Он показывается один раз, поэтому сразу сохраните его.</p>
+    <p class="muted">Уже пользуетесь ботом? Не создавайте новый аккаунт: получите ключ в боте в разделе «Вход на сайт» и <a href="/login">войдите по нему</a>. Пробный период выдаётся только в боте.</p>
+    @if (Model.Error is string error)
+    {
+        <div class="notice error">@error</div>
+    }
+    <form method="post">
+        <div class="actions"><button type="submit" class="button">Создать аккаунт</button></div>
+    </form>
+}
+@section Scripts {
+    <script src="/js/cabinet.js" defer></script>
+}

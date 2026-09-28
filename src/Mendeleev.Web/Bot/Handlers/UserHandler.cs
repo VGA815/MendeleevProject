@@ -1,5 +1,6 @@
 using Mendeleev.Application.Abstractions.Messaging;
 using Mendeleev.Application.Accounts.IssueAccountKey;
+using Mendeleev.Application.Accounts.LinkTelegram;
 using Mendeleev.Application.Configuration;
 using Mendeleev.Application.Devices.GetDevices;
 using Mendeleev.Application.Devices.ResetDevices;
@@ -12,8 +13,8 @@ using Mendeleev.Domain.Payments;
 using Mendeleev.Domain.Subscriptions;
 using Mendeleev.SharedKernel;
 using Mendeleev.Web.Bot.Content;
+using Mendeleev.Web.Infrastructure;
 using Microsoft.Extensions.Options;
-using QRCoder;
 using Telegram.Bot.Types.ReplyMarkups;
 
 namespace Mendeleev.Web.Bot.Handlers
@@ -30,7 +31,8 @@ namespace Mendeleev.Web.Bot.Handlers
         ICommandHandler<CheckPaymentCommand, PaymentCheckResult> checkPayment,
         IQueryHandler<GetDevicesQuery, DevicesView> getDevices,
         ICommandHandler<ResetDevicesCommand, DevicesResetResult> resetDevices,
-        ICommandHandler<IssueAccountKeyCommand, string> issueKey)
+        ICommandHandler<IssueAccountKeyCommand, string> issueKey,
+        ICommandHandler<IssueLinkCodeCommand, IssuedLinkCode> issueLinkCode)
     {
         private BotContent C => contentMonitor.CurrentValue;
 
@@ -239,11 +241,7 @@ namespace Mendeleev.Web.Bot.Handlers
                 return;
             }
 
-            using var generator = new QRCodeGenerator();
-            using QRCodeData data = generator.CreateQrCode(url, QRCodeGenerator.ECCLevel.M);
-            byte[] png = new PngByteQRCode(data).GetGraphic(10);
-
-            await responder.SendPhotoAsync(context.ChatId, png, C.Text("QrCaption"), null, cancellationToken);
+            await responder.SendPhotoAsync(context.ChatId, QrCodes.Png(url), C.Text("QrCaption"), null, cancellationToken);
         }
 
         public async Task DevicesAsync(BotContext context, CancellationToken cancellationToken)
@@ -344,6 +342,7 @@ namespace Mendeleev.Web.Bot.Handlers
                 TextRenderer.Render(C.Text("KeyIntro"), ("site", serviceOptions.Value.SiteBaseUrl)),
                 Keyboards.Of(
                     [Keyboards.Callback(context.User.HasAccountKey ? C.Button("ReissueKey") : C.Button("IssueKey"), Cb.KeyIssue)],
+                    [Keyboards.Callback(C.Button("LinkCode"), Cb.LinkCode)],
                     Keyboards.BackToMenu(C)),
                 cancellationToken);
 
@@ -355,6 +354,18 @@ namespace Mendeleev.Web.Bot.Handlers
                 : TextRenderer.Encode(result.Error.Description);
 
             // A new message, not an edit: the key must not disappear from the chat by the next click.
+            await responder.SendAsync(context.ChatId, text, Keyboards.Of(Keyboards.BackToMenu(C)), cancellationToken);
+        }
+
+        /// <summary>A code to link this Telegram to an account created on the site (FR-ACC-09).</summary>
+        public async Task IssueLinkCodeAsync(BotContext context, CancellationToken cancellationToken)
+        {
+            Result<IssuedLinkCode> result = await issueLinkCode.Handle(new IssueLinkCodeCommand(context.UserId), cancellationToken);
+            string text = result.IsSuccess
+                ? TextRenderer.Render(C.Text("LinkCodeIssued"), ("code", result.Value.Code), ("site", serviceOptions.Value.SiteBaseUrl))
+                : TextRenderer.Encode(result.Error.Description);
+
+            // A new message: the code must stay visible while the user types it on the site.
             await responder.SendAsync(context.ChatId, text, Keyboards.Of(Keyboards.BackToMenu(C)), cancellationToken);
         }
 

@@ -1,0 +1,28 @@
+@using Mendeleev.Web.Cabinet
+@{
+    Layout = "_Layout";
+    ViewData["NoIndex"] = true;
+    var account = Context.GetCabinetAccount();
+    string current = Context.Request.Path.Value?.TrimEnd('/') ?? string.Empty;
+    string? Current(string path) => string.Equals(current, path, StringComparison.OrdinalIgnoreCase) ? "page" : null;
+}
+@if (account is { IsBlocked: false })
+{
+    <nav class="subnav" aria-label="Кабинет">
+        <a href="/cabinet" aria-current="@Current("/cabinet")">Подписка</a>
+        <a href="/cabinet/pay" aria-current="@Current("/cabinet/pay")">Оплата</a>
+        <a href="/cabinet/instructions" aria-current="@Current("/cabinet/instructions")">Инструкции</a>
+        <a href="/cabinet/devices" aria-current="@Current("/cabinet/devices")">Устройства</a>
+        @if (!account.HasTelegram)
+        {
+            <a href="/cabinet/link-telegram" aria-current="@Current("/cabinet/link-telegram")">Привязать Telegram</a>
+        }
+        <a href="/cabinet/settings" aria-current="@Current("/cabinet/settings")">Настройки</a>
+    </nav>
+}
+@RenderBody()
+<partial name="_Support" />
+@section Scripts {
+    <script src="/js/cabinet.js" defer></script>
+    @await RenderSectionAsync("Scripts", required: false)
+}

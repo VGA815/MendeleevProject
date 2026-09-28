@@ -25,6 +25,7 @@ namespace Mendeleev.Web.Bot.Infrastructure
             new() { Command = "devices", Description = "Устройства" },
             new() { Command = "help", Description = "Помощь" },
             new() { Command = "key", Description = "Вход на сайт" },
+            new() { Command = "link", Description = "Привязать аккаунт с сайта" },
         ];
 
         public async Task PublishAllAsync(CancellationToken cancellationToken)

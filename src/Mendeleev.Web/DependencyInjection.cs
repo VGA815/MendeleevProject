@@ -6,20 +6,43 @@ using Mendeleev.Web.Bot;
 using Mendeleev.Web.Bot.Content;
 using Mendeleev.Web.Bot.Handlers;
 using Mendeleev.Web.Bot.Infrastructure;
+using Mendeleev.Web.Cabinet;
 using Mendeleev.Web.Endpoints;
 using Mendeleev.Web.Infrastructure;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using OpenTelemetry.Metrics;
 
 namespace Mendeleev.Web
 {
     public static class DependencyInjection
     {
-        public static IServiceCollection AddPresentation(this IServiceCollection services, IConfiguration configuration)
+        private static readonly TimeSpan LinkCodeWindow = Domain.Users.LinkCode.TelegramCodeLifetime;
+
+        public static IServiceCollection AddPresentation(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
         {
-            services.AddRazorPages();
+            services.AddRazorPages(options =>
+            {
+                // The cabinet is only for the signed-in user (FR-WEB-07: instructions only after sign-in too).
+                options.Conventions.AuthorizeFolder("/Cabinet");
+                options.Conventions.AddFolderApplicationModelConvention("/Cabinet", model => model.Filters.Add(new BlockedAccountFilter()));
+
+                // Every page gets the general limit unless it declares a stricter one (sign-in, registration).
+                options.Conventions.AddFolderApplicationModelConvention("/", model =>
+                {
+                    if (!model.HandlerTypeAttributes.OfType<EnableRateLimitingAttribute>().Any())
+                    {
+                        model.EndpointMetadata.Add(new EnableRateLimitingAttribute(RateLimitPolicies.Pages));
+                    }
+                });
+            });
+            services.AddCabinetAuthentication(environment);
             services.AddMemoryCache();
+
+            // Cyrillic stays as is in the pages instead of &#x…; entities — the encoder still escapes markup.
+            services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(options =>
+                options.TextEncoderSettings = new System.Text.Encodings.Web.TextEncoderSettings(System.Text.Unicode.UnicodeRanges.All));
             services.Configure<Pages.SiteOptions>(configuration.GetSection(Pages.SiteOptions.SectionName));
             services.AddExceptionHandler<GlobalExceptionHandler>();
             services.AddProblemDetails();
@@ -44,12 +67,30 @@ namespace Mendeleev.Web
             services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                options.OnRejected = TooManyAttemptsPage.OnRejectedAsync;
                 options.AddPolicy(RateLimitPolicies.Webhooks, context => RateLimitPartition.GetFixedWindowLimiter(
                     context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     _ => new FixedWindowRateLimiterOptions { PermitLimit = 600, Window = TimeSpan.FromMinutes(1) }));
                 options.AddPolicy(RateLimitPolicies.Pages, context => RateLimitPartition.GetFixedWindowLimiter(
                     context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1) }));
+
+                // Attempts are the form posts; showing the form is free.
+                options.AddPolicy(RateLimitPolicies.Login, context => HttpMethods.IsPost(context.Request.Method)
+                    ? RateLimitPartition.GetFixedWindowLimiter(
+                        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1) })
+                    : RateLimitPartition.GetNoLimiter("read"));
+                options.AddPolicy(RateLimitPolicies.Register, context => HttpMethods.IsPost(context.Request.Method)
+                    ? RateLimitPartition.GetFixedWindowLimiter(
+                        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new FixedWindowRateLimiterOptions { PermitLimit = 3, Window = TimeSpan.FromHours(1) })
+                    : RateLimitPartition.GetNoLimiter("read"));
+                options.AddPolicy(RateLimitPolicies.LinkCode, context => HttpMethods.IsPost(context.Request.Method)
+                    ? RateLimitPartition.GetFixedWindowLimiter(
+                        context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "anonymous",
+                        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = LinkCodeWindow })
+                    : RateLimitPartition.GetNoLimiter("read"));
             });
 
             services.AddOpenTelemetry().WithMetrics(metrics => metrics

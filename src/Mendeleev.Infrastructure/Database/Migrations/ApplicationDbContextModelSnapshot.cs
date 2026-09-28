@@ -19,7 +19,7 @@ namespace Mendeleev.Infrastructure.Database.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("public")
-                .HasAnnotation("ProductVersion", "10.0.10")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "citext");
@@ -668,6 +668,58 @@ namespace Mendeleev.Infrastructure.Database.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Mendeleev.Domain.Users.LinkCode", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code_hash");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("purpose");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_link_codes");
+
+                    b.HasIndex("CodeHash")
+                        .HasDatabaseName("ix_link_codes_code_hash");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_link_codes_expires_at");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_link_codes_user_id");
+
+                    b.ToTable("link_codes", "public");
+                });
+
             modelBuilder.Entity("Mendeleev.Domain.Users.User", b =>
                 {
                     b.Property<long>("Id")
@@ -698,6 +750,12 @@ namespace Mendeleev.Infrastructure.Database.Migrations
                         .HasMaxLength(254)
                         .HasColumnType("citext")
                         .HasColumnName("email");
+
+                    b.Property<Guid>("SessionStamp")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_stamp")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -890,6 +948,16 @@ namespace Mendeleev.Infrastructure.Database.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_traffic_daily_subscriptions_subscription_id");
+                });
+
+            modelBuilder.Entity("Mendeleev.Domain.Users.LinkCode", b =>
+                {
+                    b.HasOne("Mendeleev.Domain.Users.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_link_codes_users_user_id");
                 });
 #pragma warning restore 612, 618
         }

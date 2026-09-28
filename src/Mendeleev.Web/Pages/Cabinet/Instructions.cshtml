@@ -1,0 +1,43 @@
+@page "/cabinet/instructions"
+@model Mendeleev.Web.Pages.Cabinet.InstructionsModel
+@{
+    ViewData["Title"] = "Инструкции";
+}
+<h1>Подключение</h1>
+@if (Model.SubscriptionUrl is not string url)
+{
+    <p>@(Model.AccessPending ? "Доступ активируется в течение нескольких минут. Обновите страницу чуть позже." : "Сначала оформите подписку.")</p>
+    @if (!Model.AccessPending)
+    {
+        <div class="actions"><a class="button" href="/cabinet/pay">Оформить подписку</a></div>
+    }
+}
+else
+{
+    <div class="notice">@Model.Texts.Text("MobileWarning")</div>
+    <div class="panel">
+        <p class="link">@url</p>
+        <div class="actions">
+            <button type="button" class="button secondary" data-copy="@url">Скопировать ссылку</button>
+            <a class="button" href="@Model.ImportUrl" rel="noopener noreferrer">Добавить в Happ</a>
+        </div>
+    </div>
+    @foreach (var platform in Model.Texts.Platforms)
+    {
+        <details class="panel">
+            <summary><b>@platform.Title</b></summary>
+            <div class="content">@Html.Raw(Model.Render(platform))</div>
+        </details>
+    }
+    @if (Model.Texts.Faq.Count > 0)
+    {
+        <h2>Частые вопросы</h2>
+        @foreach (var item in Model.Texts.Faq)
+        {
+            <details class="panel">
+                <summary>@item.Question</summary>
+                <div class="content">@Html.Raw(item.Answer)</div>
+            </details>
+        }
+    }
+}

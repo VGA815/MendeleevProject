@@ -1,0 +1,37 @@
+@page "/cabinet/link-telegram"
+@model Mendeleev.Web.Pages.Cabinet.LinkTelegramModel
+@inject IOptions<ServiceOptions> Service
+@{
+    ViewData["Title"] = "Привязка Telegram";
+}
+<h1>Привязка Telegram</h1>
+@if (Model.Linked)
+{
+    <div class="notice ok">Telegram привязан ✅ Бот будет присылать напоминания о продлении, а потерянный ключ можно перевыпустить в боте в разделе «Вход на сайт».</div>
+    <p><a href="/cabinet">В кабинет</a></p>
+}
+else
+{
+    <ol>
+        <li>
+            Откройте Telegram-бота.
+            @if (!string.IsNullOrEmpty(Service.Value.BotUrl))
+            {
+                <a href="@Service.Value.BotUrl" rel="noopener">@Service.Value.BotUrl</a>
+            }
+        </li>
+        <li>Нажмите «Вход на сайт» → «Привязать аккаунт с сайта» (или отправьте команду <code>/link</code>).</li>
+        <li>Введите код из бота ниже. Код действует 10 минут.</li>
+    </ol>
+    <p class="muted">Если подписка или платежи есть и в боте, и на сайте, автоматически объединить аккаунты нельзя — напишите в поддержку.</p>
+    @if (Model.Error is string error)
+    {
+        <div class="notice error">@error</div>
+    }
+    <form method="post">
+        <label for="code">Код из бота</label>
+        <input id="code" name="code" type="text" class="code" inputmode="numeric" autocomplete="one-time-code"
+               placeholder="12345678" maxlength="20" required autofocus />
+        <div class="actions"><button type="submit" class="button">Привязать</button></div>
+    </form>
+}

@@ -46,6 +46,8 @@ namespace Mendeleev.Infrastructure.Database
 
         public DbSet<TrafficDaily> TrafficDaily { get; set; }
 
+        public DbSet<LinkCode> LinkCodes { get; set; }
+
         internal DbSet<OutboxMessage> OutboxMessages { get; set; }
 
         internal DbSet<ProcessedTelegramUpdate> ProcessedTelegramUpdates { get; set; }

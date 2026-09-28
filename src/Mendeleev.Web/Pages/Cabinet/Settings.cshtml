@@ -1,0 +1,45 @@
+@page "/cabinet/settings"
+@model Mendeleev.Web.Pages.Cabinet.SettingsModel
+@using Mendeleev.Web.Bot.Content
+@{
+    ViewData["Title"] = "Настройки";
+}
+<h1>Настройки</h1>
+@if (Model.Error is string error)
+{
+    <div class="notice error">@error</div>
+}
+@if (Model.NewKey is string key)
+{
+    <h2>Новый ключ аккаунта</h2>
+    <div class="panel">
+        <p class="secret">@key</p>
+        <div class="actions"><button type="button" class="button secondary" data-copy="@key">Скопировать ключ</button></div>
+    </div>
+    <div class="notice error">
+        <p><b>Сохраните ключ — мы показываем его один раз.</b> Старый ключ больше не работает, на других устройствах нужно войти заново.</p>
+    </div>
+    <p><a href="/cabinet">В кабинет</a></p>
+}
+else
+{
+    <section class="panel">
+        <h2>Ключ аккаунта</h2>
+        @if (Model.Account.AccountKeyIssuedAt is DateTime issuedAt)
+        {
+            <p class="muted">Текущий ключ выпущен @TextRenderer.FormatDate(issuedAt) (МСК).</p>
+        }
+        <p>Перевыпуск делает старый ключ недействительным и завершает вход на всех остальных устройствах.</p>
+        <form method="post" asp-page-handler="ReissueKey">
+            <button type="submit" class="button secondary">Перевыпустить ключ</button>
+        </form>
+    </section>
+    <section class="panel">
+        <h2>Выход на всех устройствах</h2>
+        <p>Завершает вход в кабинет везде, включая этот браузер. Ключ не меняется.</p>
+        <form method="post" asp-page-handler="SignOutEverywhere">
+            <button type="submit" class="button danger">Выйти на всех устройствах</button>
+        </form>
+    </section>
+    <p class="muted">Вход по email появится позже.</p>
+}

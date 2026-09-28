@@ -21,6 +21,12 @@ namespace Mendeleev.Domain.Users
 
         public DateTime? AccountKeyIssuedAt { get; private set; }
 
+        /// <summary>
+        /// Part of every cabinet session cookie. Changing it ends all sessions: reissuing the key and
+        /// «выйти на всех устройствах» do that (ТЗ 27, «Безопасность»).
+        /// </summary>
+        public Guid SessionStamp { get; private set; }
+
         public UserStatus Status { get; private set; }
 
         public bool TrialUsed { get; private set; }
@@ -56,6 +62,7 @@ namespace Mendeleev.Domain.Users
         {
             TelegramId = telegramId,
             Status = UserStatus.Active,
+            SessionStamp = Guid.NewGuid(),
             CreatedAt = utcNow,
             UpdatedAt = utcNow,
         };
@@ -65,16 +72,57 @@ namespace Mendeleev.Domain.Users
             AccountKeyHash = accountKeyHash,
             AccountKeyIssuedAt = utcNow,
             Status = UserStatus.Active,
+            SessionStamp = Guid.NewGuid(),
             CreatedAt = utcNow,
             UpdatedAt = utcNow,
         };
 
-        /// <summary>Replaces the account key. The previous key stops working immediately (FR-ACC-04).</summary>
+        /// <summary>
+        /// Replaces the account key. The previous key stops working immediately (FR-ACC-04) and every
+        /// cabinet session signed in with it ends (ТЗ 27, «Безопасность»).
+        /// </summary>
         public void SetAccountKey(string accountKeyHash, DateTime utcNow)
         {
             AccountKeyHash = accountKeyHash;
             AccountKeyIssuedAt = utcNow;
+            RotateSessionStamp(utcNow);
+        }
+
+        /// <summary>Ends all cabinet sessions of the user (FR-WEB-12).</summary>
+        public void RotateSessionStamp(DateTime utcNow)
+        {
+            SessionStamp = Guid.NewGuid();
             UpdatedAt = utcNow;
+        }
+
+        /// <summary>
+        /// Merge rule 1 (ТЗ 21, решение 24.09): the Telegram account had neither a subscription nor payments,
+        /// so its Telegram ID moves into this web account together with the trial mark. The caller deletes
+        /// the Telegram account first: the Telegram ID is unique.
+        /// </summary>
+        public void TakeOverTelegram(User telegramAccount, DateTime utcNow)
+        {
+            TelegramId = telegramAccount.TelegramId;
+            BotBlocked = telegramAccount.BotBlocked;
+            if (telegramAccount.TrialUsed && !TrialUsed)
+            {
+                TrialUsed = true;
+                TrialStartedAt = telegramAccount.TrialStartedAt;
+            }
+            UpdatedAt = utcNow;
+        }
+
+        /// <summary>
+        /// Merge rule 2 (ТЗ 21, решение 24.09): the web account had neither a subscription nor payments, so
+        /// its key and email move into this Telegram account. The key the user signs in with changes, so
+        /// every other session ends. The caller deletes the web account first: key and email are unique.
+        /// </summary>
+        public void TakeOverWebCredentials(User webAccount, DateTime utcNow)
+        {
+            AccountKeyHash = webAccount.AccountKeyHash;
+            AccountKeyIssuedAt = webAccount.AccountKeyIssuedAt;
+            Email = webAccount.Email ?? Email;
+            RotateSessionStamp(utcNow);
         }
 
         public void MarkTrialUsed(DateTime utcNow)
