@@ -28,6 +28,18 @@ if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
     app.ApplyMigrations();
 }
 
+// /metrics is internal only: Caddy does not route it, and a proxied request is refused here too. This runs
+// before UseForwardedHeaders, which consumes X-Forwarded-For.
+app.Use((context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/metrics") && context.Request.Headers.ContainsKey("X-Forwarded-For"))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return Task.CompletedTask;
+    }
+    return next(context);
+});
+
 app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseMiddleware<SecurityHeadersMiddleware>();
@@ -54,12 +66,7 @@ app.MapEndpoints();
 app.MapRazorPages();
 app.MapHealthCheckEndpoints();
 
-// Internal only: Caddy does not route /metrics, and a proxied request (with X-Forwarded-For) is refused here too.
-app.MapPrometheusScrapingEndpoint("/metrics")
-    .AddEndpointFilter(async (context, next) =>
-        context.HttpContext.Request.Headers.ContainsKey("X-Forwarded-For")
-            ? Results.NotFound()
-            : await next(context));
+app.MapPrometheusScrapingEndpoint("/metrics");
 
 app.MapGet("robots.txt", () => Results.Text("User-agent: *\nDisallow: /cabinet\nDisallow: /pay\nDisallow: /login\nDisallow: /register\nDisallow: /dev\n", "text/plain"))
     .ExcludeFromDescription();

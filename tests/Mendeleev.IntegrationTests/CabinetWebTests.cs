@@ -175,6 +175,17 @@ namespace Mendeleev.IntegrationTests
             key.ShouldNotBeEmpty();
         }
 
+        [Fact]
+        public async Task Metrics_ThroughTheProxy_AreNotServed()
+        {
+            // ТЗ 30: /metrics is internal. Caddy does not route it; a proxied request is refused here too.
+            using CabinetSite.Browser browser = _site.NewBrowser();
+
+            using HttpResponseMessage response = await browser.GetAsync("/metrics");
+
+            response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        }
+
         private static async Task<string> RegisterAsync(CabinetSite.Browser browser)
         {
             using HttpResponseMessage response = await browser.SubmitAsync("/register");
