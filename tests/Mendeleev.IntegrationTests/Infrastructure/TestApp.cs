@@ -182,6 +182,12 @@ namespace Mendeleev.IntegrationTests.Infrastructure
 
         public ConcurrentQueue<(long ChatId, string Html)> Texts { get; } = new();
 
+        /// <summary>Chats that blocked the bot: Telegram answers 403 to them.</summary>
+        public ConcurrentDictionary<long, bool> BlockedChats { get; } = new();
+
+        /// <summary>When each broadcast message left, by <see cref="System.Diagnostics.Stopwatch"/> ticks.</summary>
+        public ConcurrentQueue<long> BroadcastSentAt { get; } = new();
+
         public Task<DeliveryResult> SendNotificationAsync(long chatId, NotificationMessage message, CancellationToken cancellationToken)
         {
             Notifications.Enqueue((chatId, message));
@@ -190,6 +196,12 @@ namespace Mendeleev.IntegrationTests.Infrastructure
 
         public Task<DeliveryResult> SendBroadcastAsync(long chatId, string html, bool withUpdateButton, CancellationToken cancellationToken)
         {
+            BroadcastSentAt.Enqueue(System.Diagnostics.Stopwatch.GetTimestamp());
+            if (BlockedChats.ContainsKey(chatId))
+            {
+                return Task.FromResult(DeliveryResult.BotBlocked);
+            }
+
             Texts.Enqueue((chatId, html));
             return Task.FromResult(DeliveryResult.Sent);
         }
