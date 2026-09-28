@@ -169,7 +169,7 @@ namespace Mendeleev.Application.Panel
                     await alerts.RaiseAsync(new Alert(
                         AlertSeverity.Warning,
                         $"panel-user-missing:{subscription.UserId}",
-                        $"Пользователь u{subscription.UserId} пропал из панели и создан заново."),
+                        $"Пользователь {User.PanelUsernameFor(subscription.UserId)} пропал из панели и создан заново."),
                         cancellationToken);
                 }
             }

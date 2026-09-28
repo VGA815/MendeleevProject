@@ -131,7 +131,7 @@ namespace Mendeleev.Application.Panel.Reconciliation
             if (drifted.Count > 0 || orphans.Count > 0)
             {
                 string text = "Сверка с панелью:\n"
-                    + string.Join("\n", drifted.Take(15).Select(d => $"u{d.UserId}: {d.Drift}"))
+                    + string.Join("\n", drifted.Take(15).Select(d => $"{User.PanelUsernameFor(d.UserId)}: {d.Drift}"))
                     + (orphans.Count > 0 ? $"\nВ панели без пары в БД ({orphans.Count}): {string.Join(", ", orphans.Take(15))}" : string.Empty);
                 await alerts.RaiseAsync(new Alert(AlertSeverity.Warning, "panel-reconcile", text), cancellationToken);
             }

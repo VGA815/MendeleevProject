@@ -1,3 +1,4 @@
+using System.Globalization;
 using Mendeleev.SharedKernel;
 
 namespace Mendeleev.Domain.Users
@@ -51,11 +52,22 @@ namespace Mendeleev.Domain.Users
         /// </summary>
         public static string PanelUsernameFor(long userId) => $"u{userId:D2}";
 
+        /// <summary>
+        /// Only the exact form <see cref="PanelUsernameFor"/> produces: <c>u+5</c>, <c>u 5</c> or <c>u005</c>
+        /// made by hand in the panel must not be taken for the user 5 by reconciliation and webhooks.
+        /// </summary>
         public static bool TryParsePanelUsername(string? username, out long userId)
         {
             userId = 0;
-            return username is { Length: > 1 } && username[0] == 'u'
-                && long.TryParse(username.AsSpan(1), out userId) && userId > 0;
+            if (username is not { Length: > 1 } || username[0] != 'u'
+                || !long.TryParse(username.AsSpan(1), NumberStyles.None, CultureInfo.InvariantCulture, out long parsed)
+                || parsed <= 0 || PanelUsernameFor(parsed) != username)
+            {
+                return false;
+            }
+
+            userId = parsed;
+            return true;
         }
 
         public static User CreateForTelegram(long telegramId, DateTime utcNow) => new()

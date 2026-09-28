@@ -123,7 +123,7 @@ namespace Mendeleev.Application.Panel.Webhooks
             await alerts.RaiseAsync(new Alert(
                 AlertSeverity.Warning,
                 $"panel-drift:{subscription.UserId}",
-                $"Пользователя u{subscription.UserId} изменили в панели ({drift}). Возвращаем состояние из БД."),
+                $"Пользователя {User.PanelUsernameFor(subscription.UserId)} изменили в панели ({drift}). Возвращаем состояние из БД."),
                 cancellationToken);
         }
 

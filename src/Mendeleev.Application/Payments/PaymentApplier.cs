@@ -136,7 +136,7 @@ namespace Mendeleev.Application.Payments
                 await alerts.RaiseAsync(new Alert(
                     AlertSeverity.Warning,
                     $"payment-blocked-user:{payment.Id}",
-                    $"Оплата {payment.Id} от заблокированного пользователя u{user.Id}: срок продлён, доступ остаётся отключённым. Решите вопрос возврата.",
+                    $"Оплата {payment.Id} от заблокированного пользователя {user.PanelUsername}: срок продлён, доступ остаётся отключённым. Решите вопрос возврата.",
                     AlertAudience.TechAdminAndAdmin),
                     cancellationToken);
             }

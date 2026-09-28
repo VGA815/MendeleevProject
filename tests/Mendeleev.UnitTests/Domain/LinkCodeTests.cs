@@ -110,5 +110,18 @@ namespace Mendeleev.UnitTests.Domain
             User.TryParsePanelUsername(expected, out long parsed).ShouldBeTrue();
             parsed.ShouldBe(userId);
         }
+
+        [Theory]
+        [InlineData("u1")]
+        [InlineData("u005")]
+        [InlineData("u+5")]
+        [InlineData("u 15")]
+        [InlineData("u00")]
+        [InlineData("admin")]
+        public void HandMadeNames_AreNotOurUsers(string username)
+        {
+            // Reconciliation and webhooks must not take somebody's manual panel user for ours.
+            User.TryParsePanelUsername(username, out _).ShouldBeFalse();
+        }
     }
 }
