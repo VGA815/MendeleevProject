@@ -92,7 +92,7 @@ namespace Mendeleev.Application.Panel.Webhooks
                     {
                         subscription.ForgetPanelUser(now);
                         subscription.RequestResync(now);
-                        await alerts.RaiseAsync(new Alert(AlertSeverity.Warning, $"panel-deleted:{userId}", $"Пользователя u{userId} удалили в панели вручную — создаём заново."), cancellationToken);
+                        await alerts.RaiseAsync(new Alert(AlertSeverity.Warning, $"panel-deleted:{userId}", $"Пользователя {User.PanelUsernameFor(userId)} удалили в панели вручную — создаём заново."), cancellationToken);
                     }
                     break;
 

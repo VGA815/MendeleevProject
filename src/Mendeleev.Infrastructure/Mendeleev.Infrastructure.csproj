@@ -31,6 +31,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Mendeleev.UnitTests" />
     <InternalsVisibleTo Include="Mendeleev.IntegrationTests" />
+    <InternalsVisibleTo Include="Mendeleev.ContractTests" />
   </ItemGroup>
 
 </Project>

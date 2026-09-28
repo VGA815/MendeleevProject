@@ -19,6 +19,10 @@ namespace Mendeleev.Infrastructure.Panel
         public InMemoryPanelClient(string subscriptionBaseUrl = "https://sub.localhost")
         {
             _subscriptionBaseUrl = subscriptionBaseUrl.TrimEnd('/');
+
+            // The local database outlives the process: ids from the start time do not collide with the
+            // panel_user_id values a previous run left there (the column is unique).
+            _nextId = (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1_000_000) * 1_000;
         }
 
         /// <summary>Makes every call fail as if the panel were unreachable.</summary>

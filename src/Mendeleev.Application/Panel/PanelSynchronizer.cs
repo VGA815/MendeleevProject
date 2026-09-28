@@ -5,6 +5,7 @@ using Mendeleev.Application.Abstractions.Observability;
 using Mendeleev.Application.Abstractions.Panel;
 using Mendeleev.Domain.Audit;
 using Mendeleev.Domain.Subscriptions;
+using Mendeleev.Domain.Users;
 using Mendeleev.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -84,7 +85,7 @@ namespace Mendeleev.Application.Panel
                 await alerts.RaiseAsync(new Alert(
                     AlertSeverity.Critical,
                     $"panel-contract:{userId}",
-                    $"Панель отклонила запрос для u{userId}: {ex.Message}. Похоже на ошибку в коде или несовместимую версию панели."),
+                    $"Панель отклонила запрос для {User.PanelUsernameFor(userId)}: {ex.Message}. Похоже на ошибку в коде или несовместимую версию панели."),
                     cancellationToken);
                 throw;
             }
@@ -213,7 +214,7 @@ namespace Mendeleev.Application.Panel
             await alerts.RaiseAsync(new Alert(
                 AlertSeverity.Warning,
                 $"panel-drift:{userId}",
-                $"Расхождение с панелью у u{userId}: {drift}. Исправлено по данным БД."),
+                $"Расхождение с панелью у {User.PanelUsernameFor(userId)}: {drift}. Исправлено по данным БД."),
                 cancellationToken);
         }
     }

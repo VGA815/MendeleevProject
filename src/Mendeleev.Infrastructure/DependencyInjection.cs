@@ -102,7 +102,17 @@ namespace Mendeleev.Infrastructure
                 return services;
             }
 
-            services
+            services.AddRemnawaveClient();
+            return services;
+        }
+
+        /// <summary>
+        /// The Remnawave adapter with its HTTP pipeline. The contract tests use this very registration
+        /// against the pinned panel in Docker (ТЗ 50, «Контрактные»).
+        /// </summary>
+        internal static IHttpClientBuilder AddRemnawaveClient(this IServiceCollection services)
+        {
+            IHttpClientBuilder builder = services
                 .AddHttpClient<IPanelClient, RemnawaveClient>((sp, client) =>
                 {
                     RemnawaveOptions options = sp.GetRequiredService<IOptions<RemnawaveOptions>>().Value;
@@ -114,18 +124,19 @@ namespace Mendeleev.Infrastructure
                     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
                     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", options.ApiToken);
                     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                })
-                .AddStandardResilienceHandler(resilience =>
-                {
-                    // A create that timed out may have succeeded; the outbox retries non-idempotent calls
-                    // with its own schedule and adopts an existing user on conflict.
-                    resilience.Retry.DisableForUnsafeHttpMethods();
-                    resilience.Retry.MaxRetryAttempts = 2;
-                    resilience.AttemptTimeout.Timeout = TimeSpan.FromSeconds(10);
-                    resilience.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(30);
                 });
 
-            return services;
+            builder.AddStandardResilienceHandler(resilience =>
+            {
+                // A create that timed out may have succeeded; the outbox retries non-idempotent calls
+                // with its own schedule and adopts an existing user on conflict.
+                resilience.Retry.DisableForUnsafeHttpMethods();
+                resilience.Retry.MaxRetryAttempts = 2;
+                resilience.AttemptTimeout.Timeout = TimeSpan.FromSeconds(10);
+                resilience.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(30);
+            });
+
+            return builder;
         }
 
         private static IServiceCollection AddPayments(this IServiceCollection services, IConfiguration configuration)

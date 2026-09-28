@@ -8,6 +8,7 @@ using Mendeleev.Application.Subscriptions.Trial;
 using Mendeleev.Domain.Notifications;
 using Mendeleev.Domain.Staff;
 using Mendeleev.Domain.Subscriptions;
+using Mendeleev.Domain.Users;
 using Mendeleev.IntegrationTests.Infrastructure;
 using Mendeleev.SharedKernel;
 using Microsoft.EntityFrameworkCore;
@@ -47,7 +48,7 @@ namespace Mendeleev.IntegrationTests
 
             // FR-PNL-02: the panel knows the user only as u<id>.
             PanelUser panelUser = _app.Panel.Users.ShouldHaveSingleItem();
-            panelUser.Username.ShouldBe($"u{userId}");
+            panelUser.Username.ShouldBe(User.PanelUsernameFor(userId));
             panelUser.HwidDeviceLimit.ShouldBe(3);
             panelUser.TrafficLimitBytes.ShouldBe(10L * 1024 * 1024 * 1024);
             panelUser.InternalSquads.ShouldBe([TestApp.BasicSquad]);

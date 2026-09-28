@@ -27,8 +27,12 @@ jobs:
         run: dotnet build MendeleevProject.slnx -c Release --no-restore
 
       # Integration tests start PostgreSQL through Testcontainers — Docker is available on the runner.
+      # The contract tests have their own job below.
       - name: Test
-        run: dotnet test MendeleevProject.slnx -c Release --no-build --logger "trx;LogFilePrefix=results"
+        run: |
+          for project in tests/Mendeleev.UnitTests tests/Mendeleev.ArchitectureTests tests/Mendeleev.IntegrationTests; do
+            dotnet test "$project" -c Release --no-build --logger "trx;LogFilePrefix=results"
+          done
 
       - name: Vulnerable packages
         run: |
@@ -44,6 +48,27 @@ jobs:
           name: test-results
           path: "**/TestResults/*.trx"
 
+  # ТЗ 50, «Контрактные»: the Remnawave adapter against the pinned panel in Docker (REMNAWAVE_TAG from
+  # deploy/panel/.env.example). A PR that bumps the tag is the check before updating the panel.
+  contract-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Contract tests (Remnawave)
+        run: dotnet test tests/Mendeleev.ContractTests -c Release --logger "trx;LogFilePrefix=contract"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: contract-test-results
+          path: "**/TestResults/*.trx"
+
   lint-infra:
     runs-on: ubuntu-latest
     steps:
@@ -54,7 +79,7 @@ jobs:
         run: docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" -e SITE_DOMAIN=a.test -e SITE_DOMAIN_RESERVE=b.test -e SUB_DOMAIN=c.test -e SUB_DOMAIN_RESERVE=d.test -e WEBHOOK_DOMAIN=e.test -e ACME_EMAIL=x@a.test caddy:2.10-alpine caddy validate --config /etc/caddy/Caddyfile
 
   images:
-    needs: [build-test, lint-infra]
+    needs: [build-test, contract-tests, lint-infra]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

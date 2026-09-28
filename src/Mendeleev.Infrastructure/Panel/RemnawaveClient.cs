@@ -135,7 +135,7 @@ namespace Mendeleev.Infrastructure.Panel
         {
             using HttpResponseMessage response = await SendAsync(
                 HttpMethod.Post,
-                $"api/users/{panelUserId}/actions/revoke-subscription",
+                $"api/users/{panelUserId}/actions/revoke",
                 new RevokeSubscriptionRequest(newShortUuid, RevokeOnlyPasswords: false),
                 cancellationToken);
             if (response.StatusCode == HttpStatusCode.NotFound)

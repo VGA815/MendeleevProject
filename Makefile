@@ -1,7 +1,7 @@
 SOLUTION = MendeleevProject.slnx
 DEV_COMPOSE = deploy/docker-compose.dev.yml
 
-.PHONY: db-up db-down run build test test-unit test-integration migration image
+.PHONY: db-up db-down run build test test-unit test-integration test-contract test-volume migration image
 
 db-up:          ## Local PostgreSQL
 	docker compose -f $(DEV_COMPOSE) up -d
@@ -24,6 +24,12 @@ test-unit:
 
 test-integration:
 	dotnet test tests/Mendeleev.IntegrationTests
+
+test-contract:  ## Remnawave adapter against the pinned panel in Docker; REMNAWAVE_TAG=x.y.z to try another version
+	dotnet test tests/Mendeleev.ContractTests
+
+test-volume:    ## 5000 users through the outbox into the pinned panel + reconciliation (a few minutes; docs/capacity.md)
+	MENDELEEV_VOLUME=1 dotnet test tests/Mendeleev.ContractTests --filter "Category=Volume" --logger "console;verbosity=detailed"
 
 migration:      ## make migration NAME=AddSomething
 	dotnet ef migrations add $(NAME) --project src/Mendeleev.Infrastructure --startup-project src/Mendeleev.Infrastructure --output-dir Database/Migrations

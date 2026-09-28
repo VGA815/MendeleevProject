@@ -39,7 +39,11 @@ namespace Mendeleev.Domain.Users
         /// <summary>The pseudonym the panel knows this user by (ТЗ: «Минимум данных в панели»).</summary>
         public string PanelUsername => PanelUsernameFor(Id);
 
-        public static string PanelUsernameFor(long userId) => $"u{userId}";
+        /// <summary>
+        /// <c>u</c> and at least two digits: Remnawave wants 3–36 characters, so <c>u1</c> would be refused
+        /// (found by the contract tests). From id 10 on the name is plain <c>u&lt;id&gt;</c>.
+        /// </summary>
+        public static string PanelUsernameFor(long userId) => $"u{userId:D2}";
 
         public static bool TryParsePanelUsername(string? username, out long userId)
         {
