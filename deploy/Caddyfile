@@ -14,6 +14,20 @@
 	respond @metrics 404
 }
 
+# Access log: IP and time of the request, kept 7 days (ТЗ 31, «Логи и приватность»). Headers are dropped:
+# they carry the cabinet session cookie, webhook secrets and signatures.
+(private_log) {
+	format filter {
+		wrap json
+		fields {
+			request>remote_port delete
+			request>headers delete
+			request>tls delete
+			resp_headers delete
+		}
+	}
+}
+
 # Site and cabinet. Webhooks are not accepted here on purpose.
 {$SITE_DOMAIN}, {$SITE_DOMAIN_RESERVE} {
 	import common
@@ -26,6 +40,7 @@
 			roll_size 20MiB
 			roll_keep_for 168h
 		}
+		import private_log
 	}
 }
 
@@ -46,10 +61,11 @@
 			roll_size 20MiB
 			roll_keep_for 168h
 		}
+		import private_log
 	}
 }
 
-# Subscription links. The path is the user's secret: it is masked in the logs (ТЗ 31).
+# Subscription links. The path is the user's secret: it is masked in the logs, the IP stays (ТЗ 31).
 {$SUB_DOMAIN}, {$SUB_DOMAIN_RESERVE} {
 	import common
 	header Referrer-Policy no-referrer
@@ -64,8 +80,10 @@
 			wrap json
 			fields {
 				request>uri replace /***
-				request>headers>X-Hwid delete
-				request>headers>Cookie delete
+				request>remote_port delete
+				request>headers delete
+				request>tls delete
+				resp_headers delete
 			}
 		}
 	}
