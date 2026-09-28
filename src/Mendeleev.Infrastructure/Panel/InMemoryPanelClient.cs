@@ -13,7 +13,7 @@ namespace Mendeleev.Infrastructure.Panel
     {
         private readonly ConcurrentDictionary<int, PanelUser> _users = new();
         private readonly ConcurrentDictionary<int, List<PanelDevice>> _devices = new();
-        private readonly string _subscriptionBaseUrl;
+        private string _subscriptionBaseUrl;
         private int _nextId;
 
         public InMemoryPanelClient(string subscriptionBaseUrl = "https://sub.localhost")
@@ -23,6 +23,16 @@ namespace Mendeleev.Infrastructure.Panel
             // The local database outlives the process: ids from the start time do not collide with the
             // panel_user_id values a previous run left there (the column is unique).
             _nextId = (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1_000_000) * 1_000;
+        }
+
+        /// <summary>As SUB_PUBLIC_DOMAIN changed in the panel: every link moves to the new domain.</summary>
+        public void SwitchSubscriptionDomain(string subscriptionBaseUrl)
+        {
+            _subscriptionBaseUrl = subscriptionBaseUrl.TrimEnd('/');
+            foreach (PanelUser user in _users.Values)
+            {
+                _users[user.Id] = user with { SubscriptionUrl = $"{_subscriptionBaseUrl}/{user.ShortUuid}" };
+            }
         }
 
         /// <summary>Makes every call fail as if the panel were unreachable.</summary>

@@ -277,6 +277,21 @@ namespace Mendeleev.Domain.Subscriptions
             UpdatedAt = utcNow;
         }
 
+        /// <summary>
+        /// The panel now builds the link on another domain (the subscriptions domain was switched to the
+        /// reserve, runbook «Заблокирован домен подписок»). The secret part stays: nothing to resync.
+        /// </summary>
+        public bool RefreshSubscriptionUrl(string subscriptionUrl, DateTime utcNow)
+        {
+            if (SubscriptionUrl is null || string.Equals(SubscriptionUrl, subscriptionUrl, StringComparison.Ordinal))
+            {
+                return false;
+            }
+            SubscriptionUrl = subscriptionUrl;
+            UpdatedAt = utcNow;
+            return true;
+        }
+
         /// <summary>Nothing has to exist in the panel for this state (for example, expired and never synced).</summary>
         public void MarkNothingToSync(DateTime utcNow)
         {

@@ -157,6 +157,25 @@ namespace Mendeleev.IntegrationTests
         }
 
         [Fact]
+        public async Task SubscriptionDomainSwitch_ReachesTheStoredLinks_WithoutAResync()
+        {
+            // Runbook «Заблокирован домен подписок»: the panel builds links on the reserve domain; the bot and
+            // the cabinet must hand out the new link, the secret part stays the same.
+            long userId = await NewTrialUserAsync(2008);
+            Subscription before = await SubscriptionOfAsync(userId);
+
+            _app.Panel.SwitchSubscriptionDomain("https://sub.reserve.test");
+            PanelReconciliationSummary summary = (await _app.SendAsync<ReconcilePanelCommand, PanelReconciliationSummary>(new ReconcilePanelCommand())).Value;
+
+            summary.LinksRefreshed.ShouldBe(1);
+            summary.Drifted.ShouldBe(0);
+            Subscription after = await SubscriptionOfAsync(userId);
+            after.SubscriptionUrl.ShouldBe($"https://sub.reserve.test/{before.PanelShortUuid}");
+            after.PanelShortUuid.ShouldBe(before.PanelShortUuid);
+            _app.Alerts.Raised.ShouldNotContain(a => a.Key == "panel-reconcile");
+        }
+
+        [Fact]
         public async Task Expiry_Archive_AndReturn_FollowTheLifecycle()
         {
             long userId = await NewTrialUserAsync(2007);
