@@ -1,0 +1,19 @@
+# Staging (ТЗ 40, «Окружения»; docs/staging.md): merged over docker-compose.yml through COMPOSE_FILE in .env,
+# so release.sh and every other command stay the same as in production.
+services:
+  app:
+    environment:
+      # Empty — Telegram. Only for the load test: LOADTEST_BOT_API=http://loadtest:8081 docker compose up -d app
+      Telegram__ApiBaseUrl: ${LOADTEST_BOT_API:-}
+
+  # Dumps only when a staging bucket is configured (COMPOSE_PROFILES=backup): never the production bucket.
+  backup:
+    profiles: ["backup"]
+
+  # ТЗ 50, «Нагрузочные»: a wave of new users through the webhook; the bot answers to this stub of the Bot API.
+  loadtest:
+    image: ${REGISTRY}/mendeleev-loadtest:${APP_TAG}
+    profiles: ["loadtest"]
+    environment:
+      LOADTEST_TARGET: http://app:8080
+      LOADTEST_SECRET: ${Telegram__WebhookSecret}

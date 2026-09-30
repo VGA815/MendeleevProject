@@ -1,0 +1,12 @@
+# Staging (ТЗ 40, «Окружения»; docs/staging.md): the panel shares the VPS with the only staging node and is
+# merged over docker-compose.yml through COMPOSE_FILE in .env. The node's Xray runs in the host network and
+# holds 443 and the XHTTP port, so the API listens on PANEL_PORT (9443), and 80 answers the ACME HTTP challenge
+# for its certificate. The panel reaches the node at 172.17.0.1, the host as seen from a container.
+services:
+  caddy:
+    ports:
+      - "80:80"
+
+  # Dumps only when a staging bucket is configured (COMPOSE_PROFILES=backup): never the production bucket.
+  backup:
+    profiles: ["backup"]

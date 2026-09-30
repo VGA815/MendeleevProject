@@ -37,7 +37,8 @@ efbundle
 efbundle.exe
 
 # Ansible
-infra/ansible/inventory.ini
+infra/ansible/inventory*.ini
+!infra/ansible/inventory.example.ini
 infra/ansible/group_vars/all.yml
 infra/ansible/host_vars/
 *.retry

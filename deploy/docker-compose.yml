@@ -1,11 +1,13 @@
 # Management VPS in the Russian DC (ТЗ 40, «Управляющий VPS: состав»):
 # caddy, app, postgres, subscription-page, backup. Secrets only in deploy/.env (chmod 600), never in Git.
 #
-# Release (ТЗ 40, «Сборка и поставка»):
+# Release (ТЗ 40, «Сборка и поставка») — ./scripts/release.sh <tag>:
 #   docker compose pull app migrator
 #   docker compose run --rm migrator          # EF migration bundle, before the switch
 #   docker compose up -d app
-#   ./scripts/wait-ready.sh || rollback to the previous APP_TAG
+#   wait for the health check, else roll back to the previous APP_TAG
+#
+# Staging runs the same file plus docker-compose.staging.yml (COMPOSE_FILE in .env, see .env.staging.example).
 
 name: mendeleev
 
@@ -41,7 +43,8 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      ASPNETCORE_ENVIRONMENT: Production
+      # Staging on the staging VPS: the fake aggregator is allowed only there and in Development.
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ConnectionStrings__Database: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_APP_USER};Password=${POSTGRES_APP_PASSWORD}
       DataProtection__KeysPath: /keys
       BotContent__Path: /app/content/bot.yaml
