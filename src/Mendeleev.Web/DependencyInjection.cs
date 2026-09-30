@@ -1,6 +1,7 @@
 using System.Threading.RateLimiting;
 using Mendeleev.Application.Abstractions.Delivery;
 using Mendeleev.Application.Abstractions.Observability;
+using Mendeleev.Infrastructure.Payments.Fake;
 using Mendeleev.Infrastructure.Telegram;
 using Mendeleev.Web.Bot;
 using Mendeleev.Web.Bot.Content;
@@ -44,6 +45,16 @@ namespace Mendeleev.Web
             services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(options =>
                 options.TextEncoderSettings = new System.Text.Encodings.Web.TextEncoderSettings(System.Text.Unicode.UnicodeRanges.All));
             services.Configure<Pages.SiteOptions>(configuration.GetSection(Pages.SiteOptions.SectionName));
+
+            // The fake aggregator turns a click on /dev/fake-pay into a paid subscription (ТЗ 23): Development and
+            // Staging only. Outside Development its webhooks must be signed with a secret that is not in Git.
+            services.AddOptions<FakePaymentOptions>()
+                .Validate(o => !o.Enabled || environment.IsDevelopment() || environment.IsStaging(),
+                    $"Payments:Fake:Enabled is allowed only in Development and Staging, not in {environment.EnvironmentName}.")
+                .Validate(o => !o.Enabled || environment.IsDevelopment() || !string.IsNullOrWhiteSpace(o.WebhookSecret),
+                    "Payments:Fake:WebhookSecret is required outside Development.")
+                .ValidateOnStart();
+
             services.AddExceptionHandler<GlobalExceptionHandler>();
             services.AddProblemDetails();
 
