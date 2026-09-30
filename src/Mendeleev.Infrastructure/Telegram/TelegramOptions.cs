@@ -18,6 +18,12 @@ namespace Mendeleev.Infrastructure.Telegram
         /// <summary>HTTP or SOCKS5 proxy abroad for outgoing Bot API calls, e.g. <c>socks5://user:pass@host:1080</c>.</summary>
         public string? ProxyUrl { get; init; }
 
+        /// <summary>
+        /// A Bot API server other than api.telegram.org: a local Bot API server, or the stub of the load test on
+        /// staging (tools/Mendeleev.LoadTest). Empty — Telegram itself.
+        /// </summary>
+        public string? ApiBaseUrl { get; init; }
+
         /// <summary>Register the webhook (and commands) with Telegram at startup.</summary>
         public bool RegisterOnStartup { get; init; } = true;
 

@@ -175,7 +175,8 @@ namespace Mendeleev.Infrastructure
                 }
 
                 HttpClient httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient(TelegramHttpClientName);
-                return new TelegramBotClient(new TelegramBotClientOptions(options.BotToken), httpClient);
+                string? baseUrl = string.IsNullOrWhiteSpace(options.ApiBaseUrl) ? null : options.ApiBaseUrl;
+                return new TelegramBotClient(new TelegramBotClientOptions(options.BotToken, baseUrl), httpClient);
             });
 
             return services;
