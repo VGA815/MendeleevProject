@@ -76,7 +76,9 @@ jobs:
       - name: shellcheck
         run: shellcheck deploy/backup/*.sh deploy/scripts/*.sh deploy/postgres/init/*.sh infra/probes/*.sh infra/scripts/*.sh infra/routing/*.sh
       - name: Caddyfile
-        run: docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" -e SITE_DOMAIN=a.test -e SITE_DOMAIN_RESERVE=b.test -e SUB_DOMAIN=c.test -e SUB_DOMAIN_RESERVE=d.test -e WEBHOOK_DOMAIN=e.test -e ACME_EMAIL=x@a.test caddy:2.10-alpine caddy validate --config /etc/caddy/Caddyfile
+        run: |
+          docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" -e SITE_DOMAIN=a.test -e SITE_DOMAIN_RESERVE=b.test -e SUB_DOMAIN=c.test -e SUB_DOMAIN_RESERVE=d.test -e WEBHOOK_DOMAIN=e.test -e ACME_EMAIL=x@a.test caddy:2.10-alpine caddy validate --config /etc/caddy/Caddyfile
+          docker run --rm -v "$PWD/deploy/panel/Caddyfile:/etc/caddy/Caddyfile:ro" -e PANEL_DOMAIN=p.test -e PANEL_PORT=9443 -e PANEL_ALLOWED_IPS="192.0.2.1 192.0.2.2" caddy:2.10-alpine caddy validate --config /etc/caddy/Caddyfile
 
   images:
     needs: [build-test, contract-tests, lint-infra]

@@ -1,4 +1,10 @@
-{$PANEL_DOMAIN} {
-	# Firewall already limits 443 to the management VPS and the admins' addresses.
+# TLS for the panel API. PANEL_PORT is 443 on the panel VPS; on staging the panel shares the VPS with the node,
+# whose Xray holds 443, so the API moves to another port (docker-compose.staging.yml).
+{$PANEL_DOMAIN}:{$PANEL_PORT:443} {
+	# The API is only for the management VPS (ТЗ 31, «Доступ к админкам»); admins reach the UI through an SSH
+	# tunnel to 127.0.0.1:3000. This is the guard itself: Docker publishes the port past ufw. An empty list
+	# shuts everyone out rather than letting everyone in; compose refuses to start without one.
+	@outsiders not remote_ip {$PANEL_ALLOWED_IPS}
+	abort @outsiders
 	reverse_proxy remnawave:3000
 }

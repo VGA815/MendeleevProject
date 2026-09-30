@@ -1,6 +1,7 @@
 # Remnawave panel on its own VPS abroad, next to the nodes (ТЗ 10, решение 24.09).
-# Its API is reachable only from the management VPS IP (firewall, see infra/ansible role panel_firewall);
-# the UI — only through an SSH tunnel or an admin VPN (ТЗ 31, «Доступ к админкам»).
+# Its API is reachable only from the management VPS IP (PANEL_ALLOWED_IPS, checked by Caddy);
+# the UI — only through an SSH tunnel (ТЗ 31, «Доступ к админкам»).
+# Staging: the panel shares the VPS with the staging node, plus docker-compose.staging.yml.
 # Versions are pinned: Remnawave 3.x changes fast, update only after the adapter's contract tests (ТЗ 11).
 name: remnawave
 
@@ -10,7 +11,7 @@ services:
     restart: unless-stopped
     env_file: .env
     ports:
-      # Published on the public interface but closed by the firewall except for the management VPS.
+      # Localhost only: the UI through an SSH tunnel, ssh -L 3000:127.0.0.1:3000 <panel VPS>.
       - "127.0.0.1:3000:3000"
     depends_on:
       remnawave-db:
@@ -85,9 +86,11 @@ services:
     image: caddy:2.10-alpine
     restart: unless-stopped
     ports:
-      - "443:443"
+      - "${PANEL_PORT:-443}:${PANEL_PORT:-443}"
     environment:
       PANEL_DOMAIN: ${PANEL_DOMAIN}
+      PANEL_PORT: ${PANEL_PORT:-443}
+      PANEL_ALLOWED_IPS: ${PANEL_ALLOWED_IPS:?the management VPS IP, see .env.example}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
