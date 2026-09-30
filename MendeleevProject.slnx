@@ -14,6 +14,9 @@
     <Project Path="src/Mendeleev.Infrastructure/Mendeleev.Infrastructure.csproj" />
     <Project Path="src/Mendeleev.Web/Mendeleev.Web.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Mendeleev.LoadTest/Mendeleev.LoadTest.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Mendeleev.UnitTests/Mendeleev.UnitTests.csproj" />
     <Project Path="tests/Mendeleev.ArchitectureTests/Mendeleev.ArchitectureTests.csproj" />
