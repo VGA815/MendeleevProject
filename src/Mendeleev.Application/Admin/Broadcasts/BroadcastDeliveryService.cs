@@ -104,10 +104,11 @@ namespace Mendeleev.Application.Admin.Broadcasts
         {
             for (int attempt = 0; attempt < MaxRetriesPerRecipient; attempt++)
             {
-                TimeSpan wait = MinInterval - pace.Elapsed;
-                if (wait > TimeSpan.Zero)
+                // Task.Delay drops the fraction of a millisecond and its timer may fire up to a tick early, so
+                // 25 short waits in a row add up to more than 25 messages a second: wait until the stopwatch agrees.
+                for (TimeSpan wait = MinInterval - pace.Elapsed; wait > TimeSpan.Zero; wait = MinInterval - pace.Elapsed)
                 {
-                    await Task.Delay(wait, cancellationToken);
+                    await Task.Delay(TimeSpan.FromMilliseconds(Math.Ceiling(wait.TotalMilliseconds)), cancellationToken);
                 }
                 pace.Restart();
 
