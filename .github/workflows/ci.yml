@@ -98,6 +98,10 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
+      # Image names must be lowercase, the owner's name may be not.
+      - name: Registry
+        run: echo "REGISTRY=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
       - name: Service image
         uses: docker/build-push-action@v6
         with:
@@ -105,7 +109,7 @@ jobs:
           file: src/Mendeleev.Web/Dockerfile
           target: final
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/mendeleev-app:${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/mendeleev-app:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -116,5 +120,5 @@ jobs:
           file: src/Mendeleev.Web/Dockerfile
           target: migrator
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/mendeleev-migrator:${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/mendeleev-migrator:${{ github.sha }}
           cache-from: type=gha
