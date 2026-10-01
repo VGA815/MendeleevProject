@@ -109,9 +109,18 @@ namespace Mendeleev.ContractTests
                 })
                 .WithPortBinding(3000, true)
                 .WithPortBinding(3001, true)
-                .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(
-                    request => request.ForPort(3001).ForPath("/health"),
-                    wait => wait.WithTimeout(TimeSpan.FromMinutes(3))))
+                // /health on the metrics port is served by the panel's scheduler process, the API by another one
+                // that may come up later; until then Docker accepts the mapped port and drops the request. The API
+                // answers only requests that came through an HTTPS reverse proxy, hence the headers.
+                .WithWaitStrategy(Wait.ForUnixContainer()
+                    .UntilHttpRequestIsSucceeded(
+                        request => request.ForPort(3001).ForPath("/health"),
+                        wait => wait.WithTimeout(TimeSpan.FromMinutes(3)))
+                    .UntilHttpRequestIsSucceeded(
+                        request => request.ForPort(3000).ForPath("/api/auth/status")
+                            .WithHeader("X-Forwarded-For", "203.0.113.10")
+                            .WithHeader("X-Forwarded-Proto", "https"),
+                        wait => wait.WithTimeout(TimeSpan.FromMinutes(1))))
                 .Build();
             await _backend.StartAsync();
 
