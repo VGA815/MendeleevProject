@@ -8,3 +8,12 @@
 	abort @outsiders
 	reverse_proxy remnawave:3000
 }
+
+# The UI through an SSH tunnel: ssh -L 3000:127.0.0.1:3000 <panel VPS>, then http://localhost:3000; compose
+# publishes this port on the VPS loopback only. Remnawave resets every connection that did not come through an
+# HTTPS reverse proxy, a direct tunnel to the panel's own port included; here the tunnel is the encryption.
+http://:3000 {
+	reverse_proxy remnawave:3000 {
+		header_up X-Forwarded-Proto https
+	}
+}

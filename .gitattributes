@@ -8,6 +8,8 @@ Caddyfile text eol=lf
 *.conf text eol=lf
 *.j2 text eol=lf
 *.sql text eol=lf
+# Templates of the servers' .env files are copied to Linux as they are.
+*.example text eol=lf
 
 *.png binary
 *.jpg binary
