@@ -26,6 +26,7 @@ coverage*.xml
 deploy/.env
 deploy/panel/.env
 secrets/
+deploy/telegram-tunnel/keys/
 *.pem
 *.key
 !infra/**/*.key.example

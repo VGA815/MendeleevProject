@@ -123,6 +123,26 @@ services:
         condition: service_healthy
     logging: *logging
 
+  # The Bot API through SSH to a VPS abroad, when the DC cannot reach it (runbook «Bot API недоступен»):
+  # COMPOSE_PROFILES=telegram-tunnel and Telegram__ProxyUrl=socks5://telegram-tunnel:1080. The key pair and the
+  # far end's host key live in ./telegram-tunnel/keys, never in Git; the far end lets the key reach only
+  # api.telegram.org:443.
+  telegram-tunnel:
+    build: ./telegram-tunnel
+    profiles: ["telegram-tunnel"]
+    restart: unless-stopped
+    command: [
+      "-N", "-D", "0.0.0.0:1080",
+      "-i", "/keys/id_ed25519", "-o", "IdentitiesOnly=yes",
+      "-o", "UserKnownHostsFile=/keys/known_hosts", "-o", "StrictHostKeyChecking=yes",
+      "-o", "BatchMode=yes", "-o", "ExitOnForwardFailure=yes",
+      "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=3",
+      "${TELEGRAM_TUNNEL_TARGET:-}"
+    ]
+    volumes:
+      - ./telegram-tunnel/keys:/keys:ro
+    logging: *logging
+
 volumes:
   caddy-data:
   caddy-config:

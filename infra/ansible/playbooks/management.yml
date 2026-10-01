@@ -1,0 +1,13 @@
+# Management VPS baseline (ТЗ 40; NFR-19, NFR-20): the deploy user with keys, no root and no passwords over
+# SSH, fail2ban, automatic security updates, ufw with 22, 80 and 443. Docker and deploy/ are set up by hand
+# (docs/staging.md, step 5); Docker publishes its ports past ufw anyway.
+#   ansible-playbook playbooks/management.yml
+- name: Management VPS
+  hosts: management
+  become: true
+  roles:
+    - role: common
+      vars:
+        firewall_rules:
+          - { port: 80, proto: tcp }
+          - { port: 443, proto: tcp }

@@ -40,6 +40,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/publish .
+# Data Protection keys (DataProtection__KeysPath in deploy/docker-compose.yml): a new named volume takes the
+# owner of this directory, otherwise it is root's and the keys of cabinet sessions are lost on every restart.
+RUN mkdir /keys && chown $APP_UID:$APP_UID /keys
 # The aspnet image listens on 8080 (HTTP_PORTS); polling makes the mounted bot.yaml reload reliably.
 ENV DOTNET_USE_POLLING_FILE_WATCHER=true
 EXPOSE 8080
