@@ -186,6 +186,23 @@ namespace Mendeleev.IntegrationTests
             response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         }
 
+        [Fact]
+        public async Task StartupCheck_IgnoresAWaitingOutbox_TheReadinessCheckDoesNot()
+        {
+            // ТЗ 40: /health/ready is red while the oldest outbox task is older than 5 minutes — the panel is
+            // down. Docker and release.sh wait for /health/startup, so such an outage does not roll back a release.
+            await _site.WithDbAsync(db => db.Database.ExecuteSqlRawAsync(
+                "INSERT INTO outbox_messages (type, payload, status, attempts, next_attempt_at, created_at) "
+                + "VALUES ('SubscriptionChangedDomainEvent', '{{}}', 'pending', 6, now() + interval '15 minutes', now() - interval '20 minutes')"));
+            using CabinetSite.Browser browser = _site.NewBrowser();
+
+            using HttpResponseMessage startup = await browser.GetAsync("/health/startup");
+            using HttpResponseMessage ready = await browser.GetAsync("/health/ready");
+
+            startup.StatusCode.ShouldBe(HttpStatusCode.OK);
+            ready.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
+        }
+
         private static async Task<string> RegisterAsync(CabinetSite.Browser browser)
         {
             using HttpResponseMessage response = await browser.SubmitAsync("/register");

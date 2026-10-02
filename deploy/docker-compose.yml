@@ -55,7 +55,9 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health/ready"]
+      # The database answers. Not /health/ready: it is red while the panel is down (outbox waits), and
+      # release.sh would roll back a working version; Uptime Kuma watches /health/ready from outside.
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health/startup"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -99,7 +101,11 @@ services:
       REMNAWAVE_PANEL_URL: ${REMNAWAVE_PANEL_URL}
       REMNAWAVE_API_TOKEN: ${SUBSCRIPTION_PAGE_API_TOKEN}
       TRUST_PROXY: 1
-    logging: *logging
+    # No logs at all (ТЗ 31): its access log carries the client IP, the subscription path (the user's
+    # secret) and the device id, and it cannot be switched off. Caddy keeps the masked access log instead.
+    # Startup output for diagnostics: docker compose run --rm --no-deps subscription-page
+    logging:
+      driver: none
 
   backup:
     build: ./backup

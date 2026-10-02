@@ -1,6 +1,8 @@
 #!/bin/sh
 # Release on the management VPS (ТЗ 40, «Сборка и поставка»):
-#   pull → migrations (bundle) → up → wait for /health/ready → roll back to the previous tag if not ready.
+#   pull → migrations (bundle) → up → wait for the container health check → roll back to the previous tag
+#   if it does not turn healthy. The check is /health/startup (process and database), not /health/ready as
+#   ТЗ 40 puts it: /health/ready is red while the panel is down, and a release then would roll back for nothing.
 # Not during peak hours and not during launch waves. Usage: ./scripts/release.sh <new-tag>
 set -eu
 cd "$(dirname "$0")/.."
