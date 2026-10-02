@@ -44,6 +44,9 @@ infra/ansible/group_vars/all.yml
 infra/ansible/host_vars/
 *.retry
 
+# Python (infra/scripts)
+__pycache__/
+
 # OS
 .DS_Store
 Thumbs.db
