@@ -64,6 +64,13 @@ namespace Mendeleev.Domain.Subscriptions
         /// <summary>Trial and active subscriptions let traffic through.</summary>
         public bool GrantsAccess => Status is SubscriptionStatus.Trial or SubscriptionStatus.Active;
 
+        /// <summary>
+        /// Access is granted here but may not be in the panel yet: the link was never issued, or the last
+        /// change has not reached the panel (it is unreachable). The user sees «Доступ активируется в течение
+        /// нескольких минут» (ТЗ 22, 23: «Панель недоступна…»).
+        /// </summary>
+        public bool AccessPending => GrantsAccess && (SubscriptionUrl is null || SyncState == SyncState.Pending);
+
         /// <summary>States in which a panel user must exist (a disabled user stays in the panel, switched off).</summary>
         public bool RequiresPanelUser =>
             Status is SubscriptionStatus.Trial or SubscriptionStatus.Active or SubscriptionStatus.Disabled;

@@ -67,7 +67,8 @@ namespace Mendeleev.Application.Payments.Check
                 .FirstAsync(cancellationToken);
 
             bool accessPending = current.Status == PaymentStatus.Succeeded
-                && await db.Subscriptions.AnyAsync(s => s.UserId == command.UserId && s.SubscriptionUrl == null, cancellationToken);
+                && await db.Subscriptions.AsNoTracking().FirstOrDefaultAsync(s => s.UserId == command.UserId, cancellationToken)
+                    is { AccessPending: true };
 
             return new PaymentCheckResult(current.Status, accessPending);
         }

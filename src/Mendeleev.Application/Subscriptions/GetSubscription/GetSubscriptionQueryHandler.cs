@@ -50,7 +50,7 @@ namespace Mendeleev.Application.Subscriptions.GetSubscription
                 subscription.ExpiresAt,
                 subscription.DaysLeft(now),
                 subscription.LinkVisible ? subscription.SubscriptionUrl : null,
-                AccessPending: subscription.GrantsAccess && subscription.SubscriptionUrl is null,
+                AccessPending: subscription.AccessPending,
                 subscription.Tariff.TrafficLimitBytes,
                 used,
                 subscription.Tariff.DeviceLimit);

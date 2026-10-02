@@ -13,5 +13,8 @@ namespace Mendeleev.Domain.Notifications
         LinkReissued = 7,
         Compensated = 8,
         Incident = 9,
+
+        /// <summary>Paid, but the panel is unreachable: access follows once the sync gets through (ТЗ 23).</summary>
+        AccessPending = 10,
     }
 }

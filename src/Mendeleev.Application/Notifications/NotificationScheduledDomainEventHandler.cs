@@ -103,6 +103,10 @@ namespace Mendeleev.Application.Notifications
                 case NotificationKind.LinkReissued:
                     return subscription is { LinkVisible: true };
 
+                case NotificationKind.AccessPending:
+                    // The sync got through first: the confirmation with the date is on its way instead.
+                    return subscription is { AccessPending: true };
+
                 default:
                     return true;
             }

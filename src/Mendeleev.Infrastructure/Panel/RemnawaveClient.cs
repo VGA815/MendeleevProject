@@ -169,6 +169,13 @@ namespace Mendeleev.Infrastructure.Panel
             await EnsureSuccessAsync(response, "delete all devices", cancellationToken);
         }
 
+        public async Task PingAsync(CancellationToken cancellationToken)
+        {
+            // The cheapest call within the service token's rights (users:*, hwid-user-devices:*).
+            using HttpResponseMessage response = await SendAsync(HttpMethod.Get, "api/users?start=0&size=1", null, cancellationToken);
+            await EnsureSuccessAsync(response, "ping", cancellationToken);
+        }
+
         private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
         {
             using var request = new HttpRequestMessage(method, path);

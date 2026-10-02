@@ -22,6 +22,13 @@ namespace Mendeleev.Application.Panel
             Enabled: subscription.Status != SubscriptionStatus.Disabled);
 
         /// <summary>
+        /// Trial or active by status, but the term is over: the job that expires it runs once a minute and
+        /// has not got to it yet. For the panel such a subscription is already expired.
+        /// </summary>
+        public static bool HasLapsed(Subscription subscription, DateTime utcNow) =>
+            subscription.GrantsAccess && subscription.ExpiresAt <= utcNow;
+
+        /// <summary>
         /// Compares the panel with the desired state. Returns a short description of the first
         /// difference, or null if they agree. The panel expires and limits users by itself, so an
         /// EXPIRED or LIMITED panel user is fine for a subscription that no longer grants access.
@@ -33,6 +40,16 @@ namespace Mendeleev.Application.Panel
             if (!string.Equals(actual.ShortUuid, desired.ShortUuid, StringComparison.Ordinal))
             {
                 return "shortUuid";
+            }
+
+            if (subscription.Status == SubscriptionStatus.Expired || HasLapsed(subscription, utcNow))
+            {
+                // The panel cannot take an expireAt in the past, so the date is not compared: comparing it
+                // pushed the same update back and forth until the expiry job ran. Drift is only a user the
+                // panel still lets through: extended by hand (FR-PNL-06) or our term was moved back.
+                return actual.Status == PanelUserStatus.Active && actual.ExpireAt > utcNow
+                    ? $"active until {actual.ExpireAt:O} while expired"
+                    : null;
             }
 
             switch (subscription.Status)
@@ -55,14 +72,6 @@ namespace Mendeleev.Application.Panel
                         return $"expireAt {actual.ExpireAt:O}, expected {desired.ExpireAt:O}";
                     }
                     break;
-
-                case SubscriptionStatus.Expired:
-                    // Somebody extended the user by hand in the panel UI (FR-PNL-06).
-                    if (actual.Status == PanelUserStatus.Active && actual.ExpireAt > utcNow)
-                    {
-                        return $"active until {actual.ExpireAt:O} while expired";
-                    }
-                    return null;
             }
 
             if (actual.TrafficLimitBytes != desired.TrafficLimitBytes)

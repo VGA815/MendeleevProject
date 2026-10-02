@@ -3,15 +3,20 @@ using Mendeleev.Application.Abstractions.Panel;
 using Mendeleev.Application.Accounts.EnsureTelegramUser;
 using Mendeleev.Application.Admin.Users;
 using Mendeleev.Application.Panel.Reconciliation;
+using Mendeleev.Application.Panel.Webhooks;
 using Mendeleev.Application.Subscriptions.Maintenance;
 using Mendeleev.Application.Subscriptions.Trial;
+using Mendeleev.Domain.Audit;
 using Mendeleev.Domain.Notifications;
 using Mendeleev.Domain.Staff;
 using Mendeleev.Domain.Subscriptions;
 using Mendeleev.Domain.Users;
+using Mendeleev.Infrastructure.Outbox;
+using Mendeleev.Infrastructure.Panel;
 using Mendeleev.IntegrationTests.Infrastructure;
 using Mendeleev.SharedKernel;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
 namespace Mendeleev.IntegrationTests
@@ -225,6 +230,85 @@ namespace Mendeleev.IntegrationTests
             (await SubscriptionOfAsync(userId)).SyncState.ShouldBe(SyncState.Synced);
             _app.Messenger.Notifications.ShouldHaveSingleItem().Message.Kind.ShouldBe(NotificationKind.AccessIssued);
         }
+
+        [Fact]
+        public async Task LapsedTerm_SwitchesThePanelUserOff_WithoutAWebhookLoop()
+        {
+            // E2E 03.10.2026, scenario 4: the term was moved back, the expiry job had not run yet. The panel
+            // cannot take a past expireAt, and comparing dates pushed the same update back and forth ~50 times.
+            long userId = await NewTrialUserAsync(2009);
+            await _app.WithDbAsync(db => db.Subscriptions
+                .Where(s => s.UserId == userId)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.ExpiresAt, _app.Clock.UtcNow.AddDays(-10))));
+
+            (await _app.SendAsync<ReconcilePanelCommand, PanelReconciliationSummary>(new ReconcilePanelCommand())).Value.Drifted.ShouldBe(1);
+            await _app.ProcessOutboxAsync();
+            PanelUser panelUser = _app.Panel.Users.Single();
+            panelUser.Status.ShouldBe(PanelUserStatus.Disabled);
+
+            // The panel reports our own update back: nothing to fix, nothing queued.
+            (await _app.SendAsync(new HandlePanelWebhookCommand(UserWebhook(panelUser)))).IsSuccess.ShouldBeTrue();
+            (await PendingOutboxAsync()).ShouldBe(0);
+        }
+
+        [Fact]
+        public async Task PanelThatKeepsDiffering_StopsTheWebhookFixes_AndCallsAHuman()
+        {
+            long userId = await NewTrialUserAsync(2010);
+            PanelUser panelUser = _app.Panel.Users.Single();
+            _app.Panel.Tamper(panelUser.Id, u => u with { HwidDeviceLimit = 99 });
+            await _app.WithDbAsync(db =>
+            {
+                for (int i = 0; i < HandlePanelWebhookCommandHandler.DriftLoopThreshold; i++)
+                {
+                    db.AuditLog.Add(AuditLogEntry.BySystem(AuditActions.PanelDriftFixed, userId, "{}", _app.Clock.UtcNow.AddSeconds(-10 - i)));
+                }
+                return db.SaveChangesAsync();
+            });
+
+            (await _app.SendAsync(new HandlePanelWebhookCommand(UserWebhook(_app.Panel.Users.Single())))).IsSuccess.ShouldBeTrue();
+
+            (await PendingOutboxAsync()).ShouldBe(0);
+            _app.Alerts.Raised.ShouldContain(a => a.Key == $"panel-drift-loop:{userId}");
+        }
+
+        [Fact]
+        public async Task PanelOutage_IsAlertedAfterFiveMinutes_AndTheWaitingSyncGoesOutOnceItIsBack()
+        {
+            // ТЗ 24: the panel is down for more than 5 minutes → an alert; access catches up after it is back —
+            // at once, not up to 15 minutes later by the outbox schedule (E2E 03.10.2026, scenario 12).
+            long userId = await NewUserAsync(2011);
+            PanelAvailabilityMonitor monitor = _app.Provider.GetRequiredService<PanelAvailabilityMonitor>();
+            _app.Panel.IsDown = true;
+
+            (await _app.SendAsync(new StartTrialCommand(userId))).IsSuccess.ShouldBeTrue();
+            foreach (int seconds in new[] { 0, 2, 5, 15, 60, 300 })
+            {
+                _app.Clock.Advance(TimeSpan.FromSeconds(seconds));
+                await _app.ProcessOutboxAsync();
+            }
+            // Six attempts failed, the next one is 15 minutes away.
+
+            await monitor.CheckAsync(CancellationToken.None);
+            _app.Alerts.Raised.ShouldNotContain(a => a.Key == "panel-down");
+            _app.Clock.Advance(PanelAvailabilityMonitor.AlertAfter);
+            await monitor.CheckAsync(CancellationToken.None);
+            _app.Alerts.Raised.ShouldContain(a => a.Key == "panel-down");
+
+            _app.Panel.IsDown = false;
+            await monitor.CheckAsync(CancellationToken.None);
+            await _app.ProcessOutboxAsync();
+
+            _app.Alerts.Raised.ShouldContain(a => a.Key == "panel-up");
+            (await SubscriptionOfAsync(userId)).SyncState.ShouldBe(SyncState.Synced);
+            _app.Messenger.Notifications.ShouldHaveSingleItem().Message.Kind.ShouldBe(NotificationKind.AccessIssued);
+        }
+
+        private PanelWebhookEvent UserWebhook(PanelUser panelUser) =>
+            new("user", "user.modified", _app.Clock.UtcNow, panelUser, null);
+
+        private Task<int> PendingOutboxAsync() =>
+            _app.WithDbAsync(db => db.OutboxMessages.CountAsync(m => m.Status == OutboxStatus.Pending));
 
         private Task<Result<DateTime>> Compensate(long staffId, long userId, int days) =>
             _app.SendAsync<CompensateCommand, DateTime>(new CompensateCommand(staffId, userId, days, "сбой ноды"));

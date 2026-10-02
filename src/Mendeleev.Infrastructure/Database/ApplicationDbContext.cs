@@ -108,6 +108,8 @@ namespace Mendeleev.Infrastructure.Database
         public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken) =>
             Database.BeginTransactionAsync(cancellationToken);
 
+        public void DiscardChanges() => ChangeTracker.Clear();
+
         public async Task<User?> LockUserAsync(long userId, CancellationToken cancellationToken)
         {
             EnsureTransaction();

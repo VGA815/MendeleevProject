@@ -94,6 +94,7 @@ namespace Mendeleev.Infrastructure
         {
             services.Configure<RemnawaveOptions>(configuration.GetSection(RemnawaveOptions.SectionName));
             services.AddSingleton<IPanelWebhookParser, RemnawaveWebhookParser>();
+            services.AddSingleton<PanelAvailabilityMonitor>();
 
             if (configuration.GetValue<bool>("Remnawave:UseInMemory"))
             {
@@ -215,7 +216,7 @@ namespace Mendeleev.Infrastructure
         private static IServiceCollection AddHealth(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddHealthChecks()
-                .AddNpgSql(configuration.GetConnectionString("Database")!, name: "postgres", tags: ["ready"])
+                .AddNpgSql(configuration.GetConnectionString("Database")!, name: "postgres", tags: ["ready", "startup"])
                 .AddCheck<OutboxHealthCheck>("outbox", failureStatus: HealthStatus.Unhealthy, tags: ["ready"]);
 
             return services;

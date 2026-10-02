@@ -92,6 +92,8 @@ namespace Mendeleev.Application.Panel
             catch (PanelException)
             {
                 AppMetrics.PanelSyncFailures.Add(1);
+                // The transaction is rolled back; a later save in this scope must not write half a sync.
+                db.DiscardChanges();
                 throw;
             }
 
@@ -129,9 +131,10 @@ namespace Mendeleev.Application.Panel
 
             PanelUserSpec spec = PanelUserSpecFactory.Create(subscription);
 
-            if (subscription.Status == SubscriptionStatus.Expired)
+            if (subscription.Status == SubscriptionStatus.Expired || PanelUserSpecFactory.HasLapsed(subscription, now))
             {
-                // The panel expires users by itself at expireAt; we only step in if it was extended by hand.
+                // The panel expires users by itself at expireAt; we only step in if it still lets the user
+                // through (extended by hand, or our term was moved back and a past date cannot be sent).
                 if (subscription.PanelUserId is int expiredPanelUserId)
                 {
                     PanelUser? actual = await panel.GetUserAsync(expiredPanelUserId, cancellationToken);

@@ -1,6 +1,7 @@
 using System.Globalization;
 using Mendeleev.Application.Abstractions.Data;
 using Mendeleev.Application.Abstractions.Observability;
+using Mendeleev.Application.Abstractions.Panel;
 using Mendeleev.Application.Notifications;
 using Mendeleev.Application.Panel;
 using Mendeleev.Domain.Notifications;
@@ -13,7 +14,8 @@ namespace Mendeleev.Application.Subscriptions
 {
     /// <summary>
     /// Pushes a changed subscription to the panel and, once access really works there, tells the user.
-    /// This is the path "оплата → доступ на всех нодах ≤ 30 с" (FR-PAY-04, NFR-01).
+    /// This is the path "оплата → доступ на всех нодах ≤ 30 с" (FR-PAY-04, NFR-01). If the panel is
+    /// unreachable after a payment, the user is told at once that access will follow in a few minutes.
     /// </summary>
     internal sealed class SubscriptionChangedDomainEventHandler(
         IPanelSynchronizer synchronizer,
@@ -24,13 +26,38 @@ namespace Mendeleev.Application.Subscriptions
     {
         public async Task Handle(SubscriptionChangedDomainEvent domainEvent, CancellationToken cancellationToken)
         {
-            await synchronizer.SyncAsync(
-                domainEvent.UserId,
-                subscription => ScheduleNoticeAsync(domainEvent, subscription, cancellationToken),
-                cancellationToken);
+            try
+            {
+                await synchronizer.SyncAsync(
+                    domainEvent.UserId,
+                    subscription => ScheduleNoticeAsync(domainEvent, subscription, cancellationToken),
+                    cancellationToken);
+            }
+            catch (PanelUnavailableException) when (PaymentIdOf(domainEvent) is Guid paymentId)
+            {
+                // ТЗ 23, «Панель недоступна после оплаты»: the payment is kept and the outbox retries the sync;
+                // meanwhile the user hears that access is on its way instead of nothing (once per payment).
+                if (await notifications.ScheduleAsync(
+                        domainEvent.UserId,
+                        NotificationKind.AccessPending,
+                        Notification.KeyFor(NotificationKind.AccessPending, domainEvent.UserId, paymentId.ToString("N")),
+                        values: null,
+                        cancellationToken))
+                {
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+                throw;
+            }
 
             await RecordPaymentToAccessAsync(domainEvent, cancellationToken);
         }
+
+        /// <summary>A payment's change carries the payment id as its notice key.</summary>
+        private static Guid? PaymentIdOf(SubscriptionChangedDomainEvent domainEvent) =>
+            domainEvent.Notice is SubscriptionNotice.PaymentSucceeded or SubscriptionNotice.AccessIssued
+            && Guid.TryParseExact(domainEvent.NoticeKey, "N", out Guid paymentId)
+                ? paymentId
+                : null;
 
         private async Task ScheduleNoticeAsync(SubscriptionChangedDomainEvent domainEvent, Subscription subscription, CancellationToken cancellationToken)
         {
@@ -62,8 +89,7 @@ namespace Mendeleev.Application.Subscriptions
 
         private async Task RecordPaymentToAccessAsync(SubscriptionChangedDomainEvent domainEvent, CancellationToken cancellationToken)
         {
-            if (domainEvent.Notice is not (SubscriptionNotice.PaymentSucceeded or SubscriptionNotice.AccessIssued)
-                || !Guid.TryParseExact(domainEvent.NoticeKey, "N", out Guid paymentId))
+            if (PaymentIdOf(domainEvent) is not Guid paymentId)
             {
                 return;
             }

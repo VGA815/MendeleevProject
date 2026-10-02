@@ -205,6 +205,13 @@ namespace Mendeleev.ContractTests
         }
 
         [Fact]
+        public async Task Ping_AnswersWithinTheServiceTokenScopes()
+        {
+            // The availability monitor asks once a minute (ТЗ 24, «Панель недоступна дольше 5 минут»).
+            await Should.NotThrowAsync(() => Client.PingAsync(CancellationToken.None));
+        }
+
+        [Fact]
         public async Task Webhook_IsSignedAsTheParserExpects_AndCarriesTheUser()
         {
             // FR-PNL-13: the panel reports changes; the service checks the signature and the age.

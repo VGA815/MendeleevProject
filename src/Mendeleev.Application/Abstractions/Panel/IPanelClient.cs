@@ -34,6 +34,9 @@ namespace Mendeleev.Application.Abstractions.Panel
         Task DeleteDeviceAsync(int panelUserId, string hwid, CancellationToken cancellationToken);
 
         Task DeleteAllDevicesAsync(int panelUserId, CancellationToken cancellationToken);
+
+        /// <summary>The panel answers and accepts our token — for the availability monitor (ТЗ 24).</summary>
+        Task PingAsync(CancellationToken cancellationToken);
     }
 
     /// <summary>The desired state of a panel user, computed from our subscription and tariff.</summary>

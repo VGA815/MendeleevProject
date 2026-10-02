@@ -37,6 +37,12 @@ namespace Mendeleev.Application.Abstractions.Data
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
 
         /// <summary>
+        /// Forgets everything tracked so far. After a rolled-back transaction the entities in memory no
+        /// longer match the database, and the next save in the same scope must not write them.
+        /// </summary>
+        void DiscardChanges();
+
+        /// <summary>
         /// Loads and row-locks the user (SELECT … FOR UPDATE) inside the current transaction. Every change
         /// of a user's subscription takes this lock first, which serializes concurrent payments, trial
         /// clicks and staff actions for one user. Payment paths lock the payment first, then the user.

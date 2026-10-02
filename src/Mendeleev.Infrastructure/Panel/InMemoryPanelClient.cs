@@ -156,6 +156,12 @@ namespace Mendeleev.Infrastructure.Panel
             return Task.CompletedTask;
         }
 
+        public Task PingAsync(CancellationToken cancellationToken)
+        {
+            ThrowIfDown();
+            return Task.CompletedTask;
+        }
+
         /// <summary>Test helper: a client registers a device.</summary>
         public void AddDevice(int panelUserId, PanelDevice device) =>
             _devices.GetOrAdd(panelUserId, _ => []).Add(device);

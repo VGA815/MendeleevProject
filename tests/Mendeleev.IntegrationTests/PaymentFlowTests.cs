@@ -8,6 +8,7 @@ using Mendeleev.Application.Payments.Create;
 using Mendeleev.Application.Payments.Reconciliation;
 using Mendeleev.Application.Payments.Webhook;
 using Mendeleev.Application.Subscriptions.Maintenance;
+using Mendeleev.Application.Subscriptions.Trial;
 using Mendeleev.Domain.Notifications;
 using Mendeleev.Domain.Payments;
 using Mendeleev.Domain.Subscriptions;
@@ -56,6 +57,38 @@ namespace Mendeleev.IntegrationTests
             await _app.ProcessOutboxAsync();
             _app.Panel.Users.ShouldHaveSingleItem().ExpireAt.ShouldBe(subscription.ExpiresAt);
             _app.Messenger.Notifications.ShouldHaveSingleItem().Message.Kind.ShouldBe(NotificationKind.AccessIssued);
+        }
+
+        [Fact]
+        public async Task PanelDown_AtRenewal_TellsAccessIsOnItsWay_ThenConfirmsOnceItIsBack()
+        {
+            // ТЗ 23, «Панель недоступна после оплаты» (E2E 03.10.2026, scenario 12): the payment counts at once,
+            // the user hears «Доступ активируется…» instead of nothing, the confirmation follows later.
+            long userId = await NewUserAsync(3010);
+            (await _app.SendAsync(new StartTrialCommand(userId))).IsSuccess.ShouldBeTrue();
+            await _app.ProcessOutboxAsync();
+            _app.Messenger.Notifications.Clear();
+
+            PaymentLink link = (await CreatePaymentAsync(userId, "basic_1m")).Value;
+            _app.Panel.IsDown = true;
+            (await DeliverAsync(Aggregator.Simulate(link.PaymentId, ProviderPaymentState.Succeeded)!)).IsSuccess.ShouldBeTrue();
+            await _app.ProcessOutboxAsync();
+
+            (await SubscriptionOfAsync(userId)).Status.ShouldBe(SubscriptionStatus.Active);
+            _app.Messenger.Notifications.ShouldHaveSingleItem().Message.Kind.ShouldBe(NotificationKind.AccessPending);
+            (await CheckAsync(userId, link.PaymentId)).AccessPending.ShouldBeTrue();
+
+            // Another failed retry does not repeat the message.
+            _app.Clock.Advance(TimeSpan.FromSeconds(3));
+            await _app.ProcessOutboxAsync();
+            _app.Messenger.Notifications.Count.ShouldBe(1);
+
+            _app.Panel.IsDown = false;
+            _app.Clock.Advance(TimeSpan.FromSeconds(6));
+            await _app.ProcessOutboxAsync();
+
+            _app.Messenger.Notifications.Select(n => n.Message.Kind).ShouldBe([NotificationKind.AccessPending, NotificationKind.PaymentSucceeded]);
+            (await CheckAsync(userId, link.PaymentId)).AccessPending.ShouldBeFalse();
         }
 
         [Fact]

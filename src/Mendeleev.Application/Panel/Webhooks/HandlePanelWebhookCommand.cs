@@ -25,6 +25,9 @@ namespace Mendeleev.Application.Panel.Webhooks
         IDateTimeProvider clock)
         : ICommandHandler<HandlePanelWebhookCommand>
     {
+        internal const int DriftLoopThreshold = 5;
+        internal static readonly TimeSpan DriftLoopWindow = TimeSpan.FromMinutes(1);
+
         public async Task<Result> Handle(HandlePanelWebhookCommand command, CancellationToken cancellationToken)
         {
             PanelWebhookEvent e = command.Event;
@@ -115,6 +118,22 @@ namespace Mendeleev.Application.Panel.Webhooks
         {
             if (subscription.PanelUserId != actual.Id || PanelUserSpecFactory.FindDrift(subscription, actual, now) is not string drift)
             {
+                return;
+            }
+
+            // Our own update comes back as a webhook too. If the panel differs again right after every fix,
+            // it cannot take the desired state, and pushing it once more only loops: stop and call a human.
+            DateTime since = now - DriftLoopWindow;
+            int recentFixes = await db.AuditLog.CountAsync(
+                a => a.Action == AuditActions.PanelDriftFixed && a.TargetUserId == subscription.UserId && a.CreatedAt > since,
+                cancellationToken);
+            if (recentFixes >= DriftLoopThreshold)
+            {
+                await alerts.RaiseAsync(new Alert(
+                    AlertSeverity.Critical,
+                    $"panel-drift-loop:{subscription.UserId}",
+                    $"Панель не принимает состояние {User.PanelUsernameFor(subscription.UserId)} ({drift}): {recentFixes} исправлений за минуту. Исправление по вебхукам остановлено, сверка повторит его через 10 минут."),
+                    cancellationToken);
                 return;
             }
 
