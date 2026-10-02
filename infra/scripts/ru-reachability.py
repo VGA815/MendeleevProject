@@ -3,9 +3,11 @@
 
 Checks a node hoster before buying and after: whether its IP opens from Russia. Probes are mostly in data
 centers, so «reachable» means the address is not blocked wholesale; home and mobile providers filter harder —
-test those from real home and mobile networks too.
+test those from real home and mobile networks too. A fresh server listens only on SSH: use --port 22. Open from
+--country DE but not from RU means the address is blocked on the Russian side, not by the hoster.
 
     python3 ru-reachability.py 203.0.113.10 198.51.100.7 --port 443
+    python3 ru-reachability.py 203.0.113.10 --port 22 --country DE --limit 5
 """
 import argparse
 import json
