@@ -43,17 +43,20 @@ namespace Mendeleev.Infrastructure.Panel
                 IPanelClient panel = scope.ServiceProvider.GetRequiredService<IPanelClient>();
                 IAlertSink alerts = scope.ServiceProvider.GetRequiredService<IAlertSink>();
 
+                // The moment of the check, not of the answer: the client retries a failing ping for a few
+                // seconds, and that jitter pushed the 5-minute mark to the next run (staging, 03.10.2026).
+                DateTime checkedAt = clock.UtcNow;
                 try
                 {
                     await panel.PingAsync(cancellationToken);
                 }
                 catch (PanelException ex)
                 {
-                    await ReportUnreachableAsync(alerts, ex, cancellationToken);
+                    await ReportUnreachableAsync(alerts, ex, checkedAt, cancellationToken);
                     return;
                 }
 
-                await ReportReachableAsync(alerts, cancellationToken);
+                await ReportReachableAsync(alerts, checkedAt, cancellationToken);
                 await ResumeWaitingSyncsAsync(scope.ServiceProvider.GetRequiredService<ApplicationDbContext>(), cancellationToken);
             }
             finally
@@ -62,9 +65,8 @@ namespace Mendeleev.Infrastructure.Panel
             }
         }
 
-        private async Task ReportUnreachableAsync(IAlertSink alerts, PanelException ex, CancellationToken cancellationToken)
+        private async Task ReportUnreachableAsync(IAlertSink alerts, PanelException ex, DateTime now, CancellationToken cancellationToken)
         {
-            DateTime now = clock.UtcNow;
             DateTime since = _unreachableSince ??= now;
             logger.LogWarning("Panel is unreachable since {Since:O}: {Error}", since, ex.Message);
 
@@ -82,14 +84,13 @@ namespace Mendeleev.Infrastructure.Panel
                 cancellationToken);
         }
 
-        private async Task ReportReachableAsync(IAlertSink alerts, CancellationToken cancellationToken)
+        private async Task ReportReachableAsync(IAlertSink alerts, DateTime now, CancellationToken cancellationToken)
         {
             if (_unreachableSince is not DateTime since)
             {
                 return;
             }
 
-            DateTime now = clock.UtcNow;
             _unreachableSince = null;
             logger.LogInformation("Panel is reachable again after {Minutes} min", Minutes(now - since));
 
