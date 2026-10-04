@@ -6,6 +6,7 @@ namespace Mendeleev.Domain.Audit
         public const string UserBlock = "user.block";
         public const string UserUnblock = "user.unblock";
         public const string SubscriptionExtend = "subscription.extend";
+        public const string PaymentManual = "payment.manual";
         public const string DevicesReset = "devices.reset";
         public const string DeviceDelete = "devices.delete";
         public const string LinkReissue = "link.reissue";

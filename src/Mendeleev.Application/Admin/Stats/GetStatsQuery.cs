@@ -32,7 +32,9 @@ namespace Mendeleev.Application.Admin.Stats
         int ActivePaid,
         int ExpiringIn7Days,
         int NotRenewed,
-        int Refunds)
+        int Refunds,
+        int ManualCount,
+        decimal ManualSum)
     {
         public int PaymentsCount => Sales.Sum(s => s.Count);
 
@@ -108,9 +110,15 @@ namespace Mendeleev.Application.Admin.Stats
                 p => p.Status == PaymentStatus.Refunded && p.UpdatedAt >= from && p.UpdatedAt < to,
                 cancellationToken);
 
+            // Included in the sales above; shown apart so the owner can match them with the money taken by hand.
+            List<decimal> manual = await db.Payments
+                .Where(p => p.Provider == Payment.ManualProvider && p.Status == PaymentStatus.Succeeded && p.PaidAt >= from && p.PaidAt < to)
+                .Select(p => p.Amount)
+                .ToListAsync(cancellationToken);
+
             return new SalesStats(
                 period, from, to, newUsers, trialUsers.Count, converted, sales,
-                activeTrials, activePaid, expiring, notRenewed, refunds);
+                activeTrials, activePaid, expiring, notRenewed, refunds, manual.Count, manual.Sum());
         }
     }
 }

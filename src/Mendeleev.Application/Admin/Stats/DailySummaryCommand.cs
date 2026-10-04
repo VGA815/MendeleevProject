@@ -83,7 +83,8 @@ namespace Mendeleev.Application.Admin.Stats
             var text = new StringBuilder();
             text.Append(Ru, $"Новых пользователей: {s.NewUsers}\n");
             text.Append(Ru, $"Выдано триалов: {s.TrialsIssued}, из них оплатили: {s.TrialsConverted} ({s.TrialConversion:P0})\n");
-            text.Append(Ru, $"Платежей: {s.PaymentsCount} на {s.PaymentsSum:N0} ₽\n");
+            text.Append(Ru, $"Платежей: {s.PaymentsCount} на {s.PaymentsSum:N0} ₽");
+            text.Append(s.ManualCount > 0 ? string.Create(Ru, $", из них вне системы: {s.ManualCount} на {s.ManualSum:N0} ₽\n") : "\n");
             foreach (TariffSales sale in s.Sales)
             {
                 text.Append(Ru, $"  • {System.Net.WebUtility.HtmlEncode(sale.TariffName)}: {sale.Count} на {sale.Sum:N0} ₽\n");

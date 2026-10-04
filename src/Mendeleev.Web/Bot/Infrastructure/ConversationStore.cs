@@ -2,15 +2,19 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace Mendeleev.Web.Bot.Infrastructure
 {
-    /// <summary>What a staff member is typing right now (a reason, a broadcast text).</summary>
-    public sealed record Conversation(string Kind, long? UserId = null, int? Days = null, string? Segment = null, bool Incident = false);
+    /// <summary>What a staff member is typing right now (a reason, a broadcast text, a manual payment).</summary>
+    public sealed record Conversation(string Kind, long? UserId = null, int? Days = null, string? Segment = null, bool Incident = false, string? Tariff = null);
 
     public static class ConversationKinds
     {
         public const string ExtendReason = "extend_reason";
         public const string BlockReason = "block_reason";
         public const string BroadcastText = "broadcast_text";
+        public const string ManualPayment = "manual_payment";
     }
+
+    /// <summary>A payment taken outside the system, waiting for the admin's confirmation; the button carries the token.</summary>
+    public sealed record ManualPaymentDraft(string Token, long UserId, string TariffCode, decimal Amount, string Comment);
 
     /// <summary>
     /// Short-lived dialog state in memory. After a restart the staff member simply starts the action
@@ -35,6 +39,25 @@ namespace Mendeleev.Web.Bot.Infrastructure
                 ? list[index]
                 : null;
 
+        public void SetManualPayment(long chatId, ManualPaymentDraft draft) => cache.Set(ManualPaymentKey(chatId), draft, Lifetime);
+
+        /// <summary>
+        /// Gives the draft out once, and only to the button it was shown with: a second tap or an old button
+        /// finds nothing. Updates of one chat are handled one by one, so this cannot race with itself.
+        /// </summary>
+        public ManualPaymentDraft? TakeManualPayment(long chatId, long userId, string token)
+        {
+            if (cache.Get<ManualPaymentDraft>(ManualPaymentKey(chatId)) is not { } draft || draft.UserId != userId || draft.Token != token)
+            {
+                return null;
+            }
+
+            cache.Remove(ManualPaymentKey(chatId));
+            return draft;
+        }
+
         private static string Key(long chatId) => $"conversation:{chatId}";
+
+        private static string ManualPaymentKey(long chatId) => $"manual-payment:{chatId}";
     }
 }

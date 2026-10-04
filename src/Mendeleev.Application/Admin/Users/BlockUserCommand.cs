@@ -25,7 +25,8 @@ namespace Mendeleev.Application.Admin.Users
     {
         public BlockUserCommandValidator()
         {
-            RuleFor(x => x.Reason).NotEmpty().MinimumLength(3).MaximumLength(500).WithMessage(StaffErrors.ReasonRequired.Description);
+            // One rule with one message: WithMessage only covers the validator right before it.
+            RuleFor(x => x.Reason).Must(r => r?.Trim().Length is >= 3 and <= 500).WithMessage(StaffErrors.ReasonRequired.Description);
         }
     }
 

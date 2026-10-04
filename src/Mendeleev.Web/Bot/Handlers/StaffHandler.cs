@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using Mendeleev.Application.Abstractions.Delivery;
 using Mendeleev.Application.Abstractions.Messaging;
@@ -9,7 +10,9 @@ using Mendeleev.Application.Admin.Stats;
 using Mendeleev.Application.Admin.Tariffs;
 using Mendeleev.Application.Admin.Users;
 using Mendeleev.Domain.Broadcasts;
+using Mendeleev.Domain.Payments;
 using Mendeleev.Domain.Staff;
+using Mendeleev.Domain.Tariffs;
 using Mendeleev.SharedKernel;
 using Mendeleev.Web.Bot.Content;
 using Mendeleev.Web.Bot.Infrastructure;
@@ -30,6 +33,7 @@ namespace Mendeleev.Web.Bot.Handlers
         ICommandHandler<FindUserCommand, UserCard> findUser,
         ICommandHandler<GetUserCardCommand, UserCard> getCard,
         ICommandHandler<CompensateCommand, DateTime> compensate,
+        ICommandHandler<RecordManualPaymentCommand, ManualPaymentRecorded> recordManualPayment,
         ICommandHandler<StaffResetDevicesCommand, int> resetDevices,
         ICommandHandler<StaffDeleteDeviceCommand> deleteDevice,
         ICommandHandler<ReissueLinkCommand> reissueLink,
@@ -48,6 +52,8 @@ namespace Mendeleev.Web.Bot.Handlers
         IQueryHandler<ListTariffsQuery, IReadOnlyList<TariffAdminView>> listTariffs)
     {
         private const string IncidentTemplate = "Часть серверов недоступна. Обновите подписку в приложении.";
+
+        private const string ManualPaymentHint = "Сумма целым числом в рублях и комментарий, как и когда получены деньги, одним сообщением: <code>300 перевод на карту 05.10</code>. Или /cancel.";
 
         private static readonly Dictionary<BroadcastSegment, string> SegmentNames = new()
         {
@@ -106,6 +112,10 @@ namespace Mendeleev.Web.Bot.Handlers
                 adminRow.Add(Keyboards.Callback("Аудит", $"s:a:{card.UserId}"));
             }
             rows.Add([.. adminRow]);
+            if (staff.Can(StaffPermission.RecordManualPayments))
+            {
+                rows.Add([Keyboards.Callback("Оплата вне системы", $"s:m:{card.UserId}")]);
+            }
             rows.Add([Keyboards.Callback("Обновить", $"s:c:{card.UserId}")]);
 
             await responder.ShowAsync(context, RenderCard(card), Keyboards.Of(rows), cancellationToken);
@@ -144,7 +154,8 @@ namespace Mendeleev.Web.Bot.Handlers
                 text.Append('\n');
                 foreach (PaymentCard p in card.Payments)
                 {
-                    text.Append($"• {TextRenderer.FormatDate(p.CreatedAt)} — {TextRenderer.Encode(p.Amount)} ₽ — {p.Status.ToString().ToLowerInvariant()}{(p.NeedsReview ? " ⚠️ разбор" : string.Empty)} — {TextRenderer.Encode(p.Provider)}\n  <code>{p.Id}</code>\n");
+                    string provider = p.Provider == Payment.ManualProvider ? "вне системы" : p.Provider;
+                    text.Append($"• {TextRenderer.FormatDate(p.CreatedAt)} — {TextRenderer.Encode(p.Amount)} ₽ — {p.Status.ToString().ToLowerInvariant()}{(p.NeedsReview ? " ⚠️ разбор" : string.Empty)} — {TextRenderer.Encode(provider)}\n  <code>{p.Id}</code>\n");
                 }
             }
 
@@ -179,6 +190,102 @@ namespace Mendeleev.Web.Bot.Handlers
         {
             conversations.Set(context.ChatId, new Conversation(ConversationKinds.ExtendReason, userId, days));
             return responder.SendAsync(context.ChatId, $"Причина продления u{userId} на {days} дн.? Напишите одним сообщением (или /cancel).", null, cancellationToken);
+        }
+
+        // ── Оплата вне системы ───────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// ТЗ 23: without an aggregator the owner takes the money and an admin records it here. Tariff → amount
+        /// and comment in one message → confirmation; nothing is written before «Записать».
+        /// </summary>
+        public async Task ManualPaymentAsync(BotContext context, long userId, CancellationToken cancellationToken)
+        {
+            Result<IReadOnlyList<TariffAdminView>> tariffs = await listTariffs.Handle(new ListTariffsQuery(context.Staff!.StaffId), cancellationToken);
+            if (tariffs.IsFailure)
+            {
+                await responder.SendAsync(context.ChatId, TextRenderer.Encode(tariffs.Error.Description), null, cancellationToken);
+                return;
+            }
+
+            IEnumerable<InlineKeyboardButton[]> rows = tariffs.Value
+                .Where(t => t.Tier != TariffTier.Trial)
+                .Select(t => new[] { Keyboards.Callback($"{t.Name} — {t.PeriodDays} дн.", $"s:m:{userId}:{t.Code}") })
+                .Append([Keyboards.Callback("« Карточка", $"s:c:{userId}")]);
+
+            await responder.ShowAsync(context, $"Оплата вне системы от u{userId}. Какой тариф оплачен?", Keyboards.Of(rows), cancellationToken);
+        }
+
+        public Task ManualPaymentTariffAsync(BotContext context, long userId, string tariffCode, CancellationToken cancellationToken)
+        {
+            conversations.Set(context.ChatId, new Conversation(ConversationKinds.ManualPayment, userId, Tariff: tariffCode));
+            return responder.SendAsync(context.ChatId, ManualPaymentHint, null, cancellationToken);
+        }
+
+        private async Task ManualPaymentInputAsync(BotContext context, long userId, string tariffCode, string text, CancellationToken cancellationToken)
+        {
+            if (!TryParseManualPayment(text, out decimal amount, out string comment))
+            {
+                conversations.Set(context.ChatId, new Conversation(ConversationKinds.ManualPayment, userId, Tariff: tariffCode));
+                await responder.SendAsync(context.ChatId, "Не понял. " + ManualPaymentHint, null, cancellationToken);
+                return;
+            }
+
+            Result<IReadOnlyList<TariffAdminView>> tariffs = await listTariffs.Handle(new ListTariffsQuery(context.Staff!.StaffId), cancellationToken);
+            if (tariffs.IsFailure || tariffs.Value.FirstOrDefault(t => t.Code == tariffCode) is not TariffAdminView tariff)
+            {
+                await responder.SendAsync(context.ChatId, TextRenderer.Encode(tariffs.IsFailure ? tariffs.Error.Description : TariffErrors.NotFound(tariffCode).Description), null, cancellationToken);
+                return;
+            }
+
+            string token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(4));
+            conversations.SetManualPayment(context.ChatId, new ManualPaymentDraft(token, userId, tariffCode, amount, comment));
+            await responder.SendAsync(
+                context.ChatId,
+                $"Записать оплату вне системы?\nu{userId}: {TextRenderer.Encode(tariff.Name)}, {tariff.PeriodDays} дн. прибавятся к сроку\nСумма: {TextRenderer.Encode(amount)} ₽\nКомментарий: {TextRenderer.Encode(comment)}\n\nПользователь получит сообщение об оплате.",
+                Keyboards.Of(
+                    [Keyboards.Callback("Записать", $"s:m!:{userId}:{token}")],
+                    [Keyboards.Callback("« Карточка", $"s:c:{userId}")]),
+                cancellationToken);
+        }
+
+        public async Task ManualPaymentConfirmAsync(BotContext context, long userId, string token, CancellationToken cancellationToken)
+        {
+            InlineKeyboardMarkup back = Keyboards.Of([Keyboards.Callback("« Карточка", $"s:c:{userId}")]);
+            if (conversations.TakeManualPayment(context.ChatId, userId, token) is not ManualPaymentDraft draft)
+            {
+                await responder.SendAsync(context.ChatId, "Эта оплата уже записана или черновик устарел. Начните заново из карточки.", back, cancellationToken);
+                return;
+            }
+
+            Result<ManualPaymentRecorded> result = await recordManualPayment.Handle(
+                new RecordManualPaymentCommand(context.Staff!.StaffId, draft.UserId, draft.TariffCode, draft.Amount, draft.Comment),
+                cancellationToken);
+            await responder.SendAsync(
+                context.ChatId,
+                result.IsSuccess
+                    ? $"Оплата записана: u{userId} до {TextRenderer.FormatDate(result.Value.ExpiresAt)} (МСК). Пользователь получит сообщение."
+                    : TextRenderer.Encode(result.Error.Description),
+                back,
+                cancellationToken);
+        }
+
+        /// <summary>«300 перевод на карту 05.10»: whole rubles first, then a comment of at least 3 characters.</summary>
+        internal static bool TryParseManualPayment(string text, out decimal amount, out string comment)
+        {
+            amount = 0;
+            comment = string.Empty;
+            string[] parts = text.Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length != 2
+                || parts[1].Length < 3
+                || !int.TryParse(parts[0].TrimEnd('₽'), NumberStyles.None, CultureInfo.InvariantCulture, out int rubles)
+                || rubles <= 0)
+            {
+                return false;
+            }
+
+            amount = rubles;
+            comment = parts[1];
+            return true;
         }
 
         // ── Устройства ───────────────────────────────────────────────────────────────────────────
@@ -285,6 +392,10 @@ namespace Mendeleev.Web.Bot.Handlers
 
                 case ConversationKinds.BlockReason when conversation.UserId is long blockId:
                     await BlockConfirmedAsync(context, blockId, text, cancellationToken);
+                    return true;
+
+                case ConversationKinds.ManualPayment when conversation is { UserId: long payerId, Tariff: string tariffCode }:
+                    await ManualPaymentInputAsync(context, payerId, tariffCode, text, cancellationToken);
                     return true;
 
                 case ConversationKinds.BroadcastText when Enum.TryParse(conversation.Segment, out BroadcastSegment segment):

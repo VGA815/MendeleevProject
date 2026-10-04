@@ -13,6 +13,9 @@ namespace Mendeleev.Domain.Payments
     {
         public const string Rub = "RUB";
 
+        /// <summary>The provider of a payment taken outside the system and recorded by an admin.</summary>
+        public const string ManualProvider = "manual";
+
         private Payment() { }
 
         public Guid Id { get; private set; }
@@ -71,6 +74,36 @@ namespace Mendeleev.Domain.Payments
                 Status = PaymentStatus.Created,
                 DaysGranted = tariff.PeriodDays,
                 CreatedAt = utcNow,
+                UpdatedAt = utcNow,
+            };
+        }
+
+        /// <summary>
+        /// Money the owner took outside the system while there is no aggregator (ТЗ 23, «Если договор с
+        /// агрегатором не готов к запуску»), recorded by an admin as already paid. The amount is what was
+        /// actually received: prices may not be set yet. It has no aggregator id, so the aggregator's checks and
+        /// the reconciliation never touch it.
+        /// </summary>
+        public static Payment RecordManual(long userId, Tariff tariff, decimal amount, DateTime utcNow)
+        {
+            if (tariff.IsTrial)
+            {
+                throw new InvalidOperationException("The trial is not for sale.");
+            }
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(amount);
+
+            return new Payment
+            {
+                Id = Guid.CreateVersion7(),
+                UserId = userId,
+                TariffId = tariff.Id,
+                Amount = amount,
+                Currency = Rub,
+                Provider = ManualProvider,
+                Status = PaymentStatus.Succeeded,
+                DaysGranted = tariff.PeriodDays,
+                CreatedAt = utcNow,
+                PaidAt = utcNow,
                 UpdatedAt = utcNow,
             };
         }

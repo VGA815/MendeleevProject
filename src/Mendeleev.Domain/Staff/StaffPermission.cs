@@ -13,5 +13,6 @@ namespace Mendeleev.Domain.Staff
         ManageStaff,
         ViewAudit,
         ViewTariffs,
+        RecordManualPayments,
     }
 }

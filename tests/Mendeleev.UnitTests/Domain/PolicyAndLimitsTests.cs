@@ -18,6 +18,7 @@ namespace Mendeleev.UnitTests.Domain
         [InlineData(StaffPermission.ViewStats, false)]
         [InlineData(StaffPermission.ManageStaff, false)]
         [InlineData(StaffPermission.ViewAudit, false)]
+        [InlineData(StaffPermission.RecordManualPayments, false)]
         public void Support_HasOnlyTheSupportPermissions(StaffPermission permission, bool allowed)
         {
             // ТЗ 31, «Матрица ролей и прав».
@@ -72,6 +73,25 @@ namespace Mendeleev.UnitTests.Domain
             payment.TryMarkSucceeded("p-1", Msk(10, 1, 12)).ShouldBeTrue();
             payment.TryMarkSucceeded("p-1", Msk(10, 1, 12)).ShouldBeFalse();
             payment.Status.ShouldBe(PaymentStatus.Succeeded);
+        }
+
+        [Fact]
+        public void ManualPayment_IsAlreadyPaid_ForTheTariffsTerm_AndNeverForTheTrial()
+        {
+            // ТЗ 23: the money came outside the system; the record only grants the tariff, once.
+            DateTime now = Msk(10, 5, 12);
+            var payment = Payment.RecordManual(1, Basic1M(), 300m, now);
+
+            payment.Provider.ShouldBe(Payment.ManualProvider);
+            payment.Status.ShouldBe(PaymentStatus.Succeeded);
+            payment.PaidAt.ShouldBe(now);
+            payment.Amount.ShouldBe(300m);
+            payment.DaysGranted.ShouldBe(30);
+            payment.ProviderPaymentId.ShouldBeNull();
+            payment.TryMarkSucceeded("late", now).ShouldBeFalse();
+
+            Should.Throw<InvalidOperationException>(() => Payment.RecordManual(1, Trial(), 300m, now));
+            Should.Throw<ArgumentOutOfRangeException>(() => Payment.RecordManual(1, Basic1M(), 0m, now));
         }
 
         [Fact]

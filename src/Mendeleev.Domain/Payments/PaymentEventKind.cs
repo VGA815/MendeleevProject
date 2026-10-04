@@ -17,5 +17,6 @@ namespace Mendeleev.Domain.Payments
         Refunded = 12,
         ReconciliationMismatch = 13,
         AppliedToBlockedUser = 14,
+        RecordedManually = 15,
     }
 }

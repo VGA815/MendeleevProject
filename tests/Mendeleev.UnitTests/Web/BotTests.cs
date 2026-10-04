@@ -1,6 +1,7 @@
 using Mendeleev.SharedKernel;
 using Mendeleev.Web.Bot;
 using Mendeleev.Web.Bot.Content;
+using Mendeleev.Web.Bot.Handlers;
 using Mendeleev.Web.Bot.Infrastructure;
 
 namespace Mendeleev.UnitTests.Web
@@ -16,6 +17,23 @@ namespace Mendeleev.UnitTests.Web
         public void ParseCommand(string text, string command, string arguments)
         {
             UpdateRouter.ParseCommand(text.Trim()).ShouldBe((command, arguments));
+        }
+
+        [Theory]
+        [InlineData("300 перевод на карту 05.10", true, 300, "перевод на карту 05.10")]
+        [InlineData("  1500₽   наличными  ", true, 1500, "наличными")]
+        [InlineData("300\nперевод на карту", true, 300, "перевод на карту")]
+        [InlineData("300", false, 0, "")]
+        [InlineData("300 ок", false, 0, "")]
+        [InlineData("перевод 300", false, 0, "")]
+        [InlineData("199.50 перевод на карту", false, 0, "")]
+        [InlineData("-5 перевод на карту", false, 0, "")]
+        [InlineData("0 перевод на карту", false, 0, "")]
+        public void ManualPayment_AmountFirst_ThenTheComment(string text, bool parsed, int amount, string comment)
+        {
+            StaffHandler.TryParseManualPayment(text, out decimal rubles, out string rest).ShouldBe(parsed);
+            rubles.ShouldBe(amount);
+            rest.ShouldBe(comment);
         }
 
         [Fact]

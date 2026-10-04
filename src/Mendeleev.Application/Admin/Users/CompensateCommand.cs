@@ -26,7 +26,8 @@ namespace Mendeleev.Application.Admin.Users
         public CompensateCommandValidator()
         {
             RuleFor(x => x.Days).InclusiveBetween(1, 365).WithMessage("Число дней — от 1 до 365.");
-            RuleFor(x => x.Reason).NotEmpty().MinimumLength(3).MaximumLength(500).WithMessage(StaffErrors.ReasonRequired.Description);
+            // One rule with one message: WithMessage only covers the validator right before it.
+            RuleFor(x => x.Reason).Must(r => r?.Trim().Length is >= 3 and <= 500).WithMessage(StaffErrors.ReasonRequired.Description);
         }
     }
 

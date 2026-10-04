@@ -12,6 +12,10 @@ namespace Mendeleev.Domain.Tariffs
             "Tariffs.NotPurchasable",
             "Этот тариф сейчас недоступен для покупки.");
 
+        public static readonly Error TrialNotForSale = Error.Problem(
+            "Tariffs.TrialNotForSale",
+            "Пробный период не продаётся — выберите платный тариф.");
+
         public static readonly Error TrialTariffMissing = Error.Problem(
             "Tariffs.TrialTariffMissing",
             "Пробный период сейчас недоступен.");

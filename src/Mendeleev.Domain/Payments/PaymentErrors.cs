@@ -27,5 +27,9 @@ namespace Mendeleev.Domain.Payments
         public static readonly Error InvalidSignature = Error.Unauthorized(
             "Payments.InvalidSignature",
             "Подпись уведомления не прошла проверку.");
+
+        public static readonly Error ManualForBlockedUser = Error.Conflict(
+            "Payments.ManualForBlockedUser",
+            "Пользователь заблокирован: сначала разблокируйте его, потом записывайте оплату.");
     }
 }

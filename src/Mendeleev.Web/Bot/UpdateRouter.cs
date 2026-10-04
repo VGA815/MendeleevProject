@@ -295,6 +295,15 @@ namespace Mendeleev.Web.Bot
                 case ["s", "a", var id] when long.TryParse(id, out long userId):
                     await staff.ShowAuditAsync(context, userId, null, cancellationToken);
                     break;
+                case ["s", "m", var id] when long.TryParse(id, out long userId):
+                    await staff.ManualPaymentAsync(context, userId, cancellationToken);
+                    break;
+                case ["s", "m", var id, var tariffCode] when long.TryParse(id, out long userId):
+                    await staff.ManualPaymentTariffAsync(context, userId, tariffCode, cancellationToken);
+                    break;
+                case ["s", "m!", var id, var token] when long.TryParse(id, out long userId):
+                    await staff.ManualPaymentConfirmAsync(context, userId, token, cancellationToken);
+                    break;
                 case ["bc", "s", var segment] when Enum.TryParse(segment, out BroadcastSegment s):
                     await staff.BroadcastSegmentAsync(context, s, incident: false, cancellationToken);
                     break;
