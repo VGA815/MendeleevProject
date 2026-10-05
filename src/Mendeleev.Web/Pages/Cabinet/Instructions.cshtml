@@ -14,7 +14,7 @@
 }
 else
 {
-    <div class="notice">@Model.Texts.Text("MobileWarning")</div>
+    <div class="notice warn">@Model.Texts.Text("MobileWarning")</div>
     <div class="panel">
         <p class="link">@url</p>
         <div class="actions">
@@ -22,22 +22,26 @@ else
             <a class="button" href="@Model.ImportUrl" rel="noopener noreferrer">Добавить в Happ</a>
         </div>
     </div>
-    @foreach (var platform in Model.Texts.Platforms)
-    {
-        <details class="panel">
-            <summary><b>@platform.Title</b></summary>
-            <div class="content">@Html.Raw(Model.Render(platform))</div>
-        </details>
-    }
+    <div class="accordion">
+        @foreach (var platform in Model.Texts.Platforms)
+        {
+            <details class="panel">
+                <summary>@platform.Title</summary>
+                <div class="content">@Html.Raw(Model.Render(platform))</div>
+            </details>
+        }
+    </div>
     @if (Model.Texts.Faq.Count > 0)
     {
         <h2>Частые вопросы</h2>
-        @foreach (var item in Model.Texts.Faq)
-        {
-            <details class="panel">
-                <summary>@item.Question</summary>
-                <div class="content">@Html.Raw(item.Answer)</div>
-            </details>
-        }
+        <div class="accordion">
+            @foreach (var item in Model.Texts.Faq)
+            {
+                <details class="panel">
+                    <summary>@item.Question</summary>
+                    <div class="content">@Html.Raw(item.Answer)</div>
+                </details>
+            }
+        </div>
     }
 }

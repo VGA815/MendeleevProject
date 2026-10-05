@@ -47,5 +47,14 @@ namespace Mendeleev.Web.Pages.Cabinet
             SubscriptionStatus.Disabled => content.CurrentValue.Text("StatusDisabled"),
             _ => string.Empty,
         };
+
+        /// <summary>Colour of the status chip; its text and glyph say the same, never the colour alone (DESIGN.md).</summary>
+        public string StatusTone => Subscription.Status switch
+        {
+            SubscriptionStatus.Trial or SubscriptionStatus.Active => "success",
+            SubscriptionStatus.Expired => "warning",
+            SubscriptionStatus.Disabled => "danger",
+            _ => string.Empty,
+        };
     }
 }

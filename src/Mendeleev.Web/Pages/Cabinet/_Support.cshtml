@@ -6,7 +6,7 @@
     string email = !string.IsNullOrWhiteSpace(Site.Value.SupportEmail) ? Site.Value.SupportEmail : Content.CurrentValue.SupportEmail;
     string telegram = Content.CurrentValue.SupportUrl;
 }
-<p class="muted">
+<p class="muted support">
     Поддержка:
     @if (!string.IsNullOrWhiteSpace(email))
     {

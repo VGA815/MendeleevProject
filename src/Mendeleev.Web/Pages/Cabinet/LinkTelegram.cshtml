@@ -12,7 +12,7 @@
 }
 else
 {
-    <ol>
+    <ol class="steps">
         <li>
             Откройте Telegram-бота.
             @if (!string.IsNullOrEmpty(Service.Value.BotUrl))
@@ -28,7 +28,7 @@ else
     {
         <div class="notice error">@error</div>
     }
-    <form method="post">
+    <form method="post" class="panel">
         <label for="code">Код из бота</label>
         <input id="code" name="code" type="text" class="code" inputmode="numeric" autocomplete="one-time-code"
                placeholder="12345678" maxlength="20" required autofocus />

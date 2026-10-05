@@ -16,56 +16,84 @@ else
 <h1>Моя подписка</h1>
 @if (!sub.Exists)
 {
-    <p>У вас пока нет подписки.</p>
-    <div class="actions"><a class="button" href="/cabinet/pay">Оформить подписку</a></div>
+    <div class="panel">
+        <p>У вас пока нет подписки.</p>
+        <div class="actions"><a class="button" href="/cabinet/pay">Оформить подписку</a></div>
+    </div>
 }
 else
 {
-    <table>
-        <tbody>
-            <tr><th>Тариф</th><td>@sub.TariffName</td></tr>
-            <tr><th>Статус</th><td>@Model.StatusText</td></tr>
+    <section class="panel sub-card">
+        <div class="sub-head">
+            <div>
+                <span class="label">Тариф</span>
+                <p class="sub-tariff">@sub.TariffName</p>
+            </div>
+            <div class="sub-status">
+                <span class="label">Статус</span>
+                <span class="chip @Model.StatusTone">@Model.StatusText</span>
+            </div>
+        </div>
+        <dl class="stats">
+            <div class="stat stat-big">
+                <dt>Осталось дней</dt>
+                <dd>@sub.DaysLeft</dd>
+            </div>
             @if (sub.ExpiresAt is DateTime expiresAt)
             {
-                <tr><th>Действует до</th><td>@TextRenderer.FormatDate(expiresAt) (МСК)</td></tr>
+                <div class="stat">
+                    <dt>Действует до</dt>
+                    <dd>@TextRenderer.FormatDate(expiresAt) <span class="muted">(МСК)</span></dd>
+                </div>
             }
-            <tr><th>Осталось дней</th><td>@sub.DaysLeft</td></tr>
             @if (sub.TrafficLimitBytes is long limit && sub.TrafficLeftBytes is long left)
             {
-                <tr><th>Осталось трафика</th><td>@TextRenderer.FormatBytes(left) из @TextRenderer.FormatBytes(limit)</td></tr>
+                <div class="stat">
+                    <dt>Осталось трафика</dt>
+                    <dd>@TextRenderer.FormatBytes(left) из @TextRenderer.FormatBytes(limit)</dd>
+                </div>
             }
-        </tbody>
-    </table>
+        </dl>
 
-    @if (sub.Status == SubscriptionStatus.Expired)
-    {
-        <div class="notice">Подписка закончилась. Продлите в течение 30 дней — ссылка останется прежней.</div>
-    }
-    else if (sub.Status == SubscriptionStatus.Disabled)
-    {
-        <div class="notice error">Доступ приостановлен — напишите в поддержку.</div>
-    }
-    @if (sub.AccessPending)
-    {
-        <div class="notice">Доступ активируется в течение нескольких минут. Обновите страницу чуть позже.</div>
-    }
-
-    @if (sub.SubscriptionUrl is string url)
-    {
-        <h2>Ссылка-подписка</h2>
-        <div class="panel">
-            <p class="link" id="subscription-link">@url</p>
-            <div class="actions">
-                <button type="button" class="button secondary" data-copy="@url">Скопировать ссылку</button>
-                <a class="button" href="@Model.ImportUrl" rel="noopener noreferrer">Добавить в Happ</a>
+        @if (sub.Status == SubscriptionStatus.Expired || sub.Status == SubscriptionStatus.Disabled || sub.AccessPending)
+        {
+            <div class="sub-section">
+                @if (sub.Status == SubscriptionStatus.Expired)
+                {
+                    <div class="notice warn">Подписка закончилась. Продлите в течение 30 дней — ссылка останется прежней.</div>
+                }
+                else if (sub.Status == SubscriptionStatus.Disabled)
+                {
+                    <div class="notice error">Доступ приостановлен — напишите в поддержку.</div>
+                }
+                @if (sub.AccessPending)
+                {
+                    <div class="notice">Доступ активируется в течение нескольких минут. Обновите страницу чуть позже.</div>
+                }
             </div>
-            <img class="qr" src="@Model.QrDataUri" alt="QR-код ссылки-подписки" width="220" height="220" />
-            <p class="muted">Отсканируйте QR-код в приложении на другом устройстве. Не пересылайте ссылку другим людям: по ней подключаются к вашей подписке.</p>
-        </div>
-        <p><a href="/cabinet/instructions">Инструкции по подключению</a></p>
-    }
+        }
 
-    <div class="actions"><a class="button" href="/cabinet/pay">Продлить</a></div>
+        @if (sub.SubscriptionUrl is string url)
+        {
+            <div class="sub-section sub-link">
+                <div>
+                    <h2>Ссылка-подписка</h2>
+                    <p class="link" id="subscription-link">@url</p>
+                    <div class="actions">
+                        <button type="button" class="button secondary" data-copy="@url">Скопировать ссылку</button>
+                        <a class="button" href="@Model.ImportUrl" rel="noopener noreferrer">Добавить в Happ</a>
+                    </div>
+                    <p class="muted">Отсканируйте QR-код в приложении на другом устройстве. Не пересылайте ссылку другим людям: по ней подключаются к вашей подписке.</p>
+                    <p><a href="/cabinet/instructions">Инструкции по подключению</a></p>
+                </div>
+                <img class="qr" src="@Model.QrDataUri" alt="QR-код ссылки-подписки" width="220" height="220" />
+            </div>
+        }
+
+        <div class="sub-section">
+            <a class="button" href="/cabinet/pay">Продлить</a>
+        </div>
+    </section>
 }
 
 @if (!Model.Account.HasTelegram)

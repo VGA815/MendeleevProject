@@ -15,27 +15,40 @@
 }
 @if (Model.Devices is { } view)
 {
-    <p>Подключено @view.Devices.Count из @view.DeviceLimit.</p>
-    @if (view.Devices.Count == 0)
-    {
-        <p class="muted">Пока нет подключённых устройств.</p>
-    }
-    else
-    {
-        <table>
-            <thead><tr><th>Устройство</th><th>Система</th><th>Добавлено (МСК)</th></tr></thead>
-            <tbody>
-                @foreach (var device in view.Devices)
+    <div class="panel">
+        <p class="devices-count">Подключено @view.Devices.Count из @view.DeviceLimit.</p>
+        @if (view.DeviceLimit is > 0 and <= 20)
+        {
+            <div class="meter" aria-hidden="true">
+                @for (int i = 0; i < view.DeviceLimit; i++)
                 {
-                    <tr>
-                        <td>@(device.DeviceModel ?? "—")</td>
-                        <td>@device.Platform @device.OsVersion</td>
-                        <td>@TextRenderer.FormatDate(device.CreatedAt)</td>
-                    </tr>
+                    <span class="@(i < view.Devices.Count ? "on" : null)"></span>
                 }
-            </tbody>
-        </table>
-    }
+            </div>
+        }
+        @if (view.Devices.Count == 0)
+        {
+            <p class="muted">Пока нет подключённых устройств.</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Устройство</th><th>Система</th><th>Добавлено (МСК)</th></tr></thead>
+                    <tbody>
+                        @foreach (var device in view.Devices)
+                        {
+                            <tr>
+                                <td>@(device.DeviceModel ?? "—")</td>
+                                <td>@device.Platform @device.OsVersion</td>
+                                <td>@TextRenderer.FormatDate(device.CreatedAt)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
 
     @if (view.NextResetAvailableAtUtc is DateTime next)
     {
@@ -45,7 +58,7 @@
     {
         @if (Model.Confirming)
         {
-            <div class="panel">
+            <div class="notice warn">
                 <p>Сбросить все устройства? Они подключатся заново при следующем обновлении подписки в приложении. Сброс доступен не чаще 2 раз за 30 дней.</p>
                 <form method="post" class="actions">
                     <button type="submit" class="button danger">Да, сбросить</button>

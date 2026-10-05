@@ -8,11 +8,11 @@
 {
     <h1>Оплата</h1>
     <div class="panel">
-        <p><b>@payment.TariffName</b> — @payment.Amount.ToString("N0", ru) ₽ за @payment.Days дн.</p>
+        <p class="pay-summary"><b>@payment.TariffName</b> — @payment.Amount.ToString("N0", ru) ₽ за @payment.Days дн.</p>
         <p>Оплата картой или через СБП на странице платёжного сервиса. Срок прибавится к текущему.</p>
         @if (payment.Reused)
         {
-            <p class="muted">У вас уже есть неоплаченный платёж на этот тариф — используйте его.</p>
+            <div class="notice">У вас уже есть неоплаченный платёж на этот тариф — используйте его.</div>
         }
         <div class="actions">
             <a class="button" href="@payment.ConfirmationUrl" rel="noopener noreferrer">Перейти к оплате</a>
@@ -34,34 +34,12 @@ else
     }
     else
     {
-        <table>
-            <thead>
-                <tr><th>Тариф</th><th>Срок</th><th>Устройств</th><th>Цена</th><th></th></tr>
-            </thead>
-            <tbody>
-                @foreach (var tariff in Model.Tariffs)
-                {
-                    <tr>
-                        <td>@tariff.Name</td>
-                        <td>@tariff.PeriodDays дн.</td>
-                        <td>до @tariff.DeviceLimit</td>
-                        <td>
-                            @tariff.Price.ToString("N0", ru) ₽
-                            @if (tariff.PeriodDays > 31)
-                            {
-                                <br /><span class="muted">≈ @tariff.MonthlyEquivalent.ToString("N0", ru) ₽/мес</span>
-                            }
-                        </td>
-                        <td>
-                            <form method="post">
-                                <input type="hidden" name="tariff" value="@tariff.Code" />
-                                <button type="submit" class="button">Оплатить</button>
-                            </form>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <ul class="tariffs">
+            @foreach (var tariff in Model.Tariffs)
+            {
+                <partial name="_TariffCard" model="new TariffCard(tariff, CanPay: true)" />
+            }
+        </ul>
         <p class="muted">Оплата картой или через СБП на странице платёжного сервиса. Продление прибавляет срок к текущему. Автосписаний нет.</p>
     }
 }
