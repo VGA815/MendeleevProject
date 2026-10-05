@@ -1,0 +1,27 @@
+@model TariffCard
+@{
+    var ru = System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
+    var tariff = Model.Tariff;
+}
+<li class="tariff">
+    <span class="tariff-period">@tariff.PeriodDays дн.</span>
+    <h2 class="tariff-name">@tariff.Name</h2>
+    <dl class="tariff-facts">
+        <dt>Устройств</dt>
+        <dd>до @tariff.DeviceLimit</dd>
+    </dl>
+    <p class="tariff-price">
+        @tariff.Price.ToString("N0", ru) ₽
+        @if (Model.CanPay && tariff.PeriodDays > 31)
+        {
+            <span class="muted">≈ @tariff.MonthlyEquivalent.ToString("N0", ru) ₽/мес</span>
+        }
+    </p>
+    @if (Model.CanPay)
+    {
+        <form method="post">
+            <input type="hidden" name="tariff" value="@tariff.Code" />
+            <button type="submit" class="button">Оплатить</button>
+        </form>
+    }
+</li>

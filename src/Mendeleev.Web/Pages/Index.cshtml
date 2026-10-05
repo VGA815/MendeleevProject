@@ -2,25 +2,31 @@
 @inject IOptions<ServiceOptions> Service
 @{
     ViewData["Title"] = "Главная";
+    ViewData["Grid"] = true;
     string botUrl = Service.Value.BotUrl;
 }
 @* TODO: формулировки главной согласовать с владельцем и юристом — реклама VPN и популяризация обхода
    блокировок запрещены (ТЗ 27, опросник 3.3). Инструкции по подключению — только после входа. *@
-<h1>@Service.Value.Name</h1>
-<p>Сервис частного сетевого доступа по подписке. Подписка оформляется и продлевается в нашем Telegram-боте или в личном кабинете на этом сайте.</p>
-<div class="actions">
-    @if (!string.IsNullOrEmpty(botUrl))
-    {
-        <a class="button" href="@botUrl" rel="noopener">Открыть бота</a>
-    }
-    @if (User.Identity?.IsAuthenticated == true)
-    {
-        <a class="button secondary" href="/cabinet">Личный кабинет</a>
-    }
-    else
-    {
-        <a class="button secondary" href="/login">Войти по ключу</a>
-        <a href="/register">Создать аккаунт без Telegram</a>
-    }
-</div>
-<p class="muted">Условия — в <a href="/offer">оферте</a>, стоимость — на странице <a href="/prices">цен</a>.</p>
+<section class="hero">
+    <img class="hero-mark" src="/img/mark.svg" width="240" height="240" alt="" />
+    <div>
+        <h1>@Service.Value.Name</h1>
+        <p class="lead">Сервис частного сетевого доступа по подписке. Подписка оформляется и продлевается в нашем Telegram-боте или в личном кабинете на этом сайте.</p>
+        <div class="actions">
+            @if (!string.IsNullOrEmpty(botUrl))
+            {
+                <a class="button" href="@botUrl" rel="noopener">Открыть бота</a>
+            }
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a class="button secondary" href="/cabinet">Личный кабинет</a>
+            }
+            else
+            {
+                <a class="button secondary" href="/login">Войти по ключу</a>
+                <a href="/register">Создать аккаунт без Telegram</a>
+            }
+        </div>
+        <p class="muted">Условия — в <a href="/offer">оферте</a>, стоимость — на странице <a href="/prices">цен</a>.</p>
+    </div>
+</section>
