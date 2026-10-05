@@ -1,4 +1,4 @@
-@page "/pay/return"
+@page "/pay/return/{paymentId:guid?}"
 @model Mendeleev.Web.Pages.Pay.ReturnModel
 @using Mendeleev.Web.Pages.Pay
 @inject IOptions<ServiceOptions> Service
@@ -21,7 +21,7 @@
             <div class="notice warn">Оплата пока не подтвердилась. Если вы уже оплатили, подождите пару минут: подписка продлится автоматически.</div>
         </div>
         <div class="actions">
-            <a class="button secondary" href="/pay/return?paymentId=@paymentId" data-when-final-hide>Проверить ещё раз</a>
+            <a class="button secondary" href="/pay/return/@paymentId" data-when-final-hide>Проверить ещё раз</a>
             <a class="button" href="/cabinet">В кабинет</a>
         </div>
     </div>

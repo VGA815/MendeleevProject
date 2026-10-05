@@ -3,6 +3,8 @@ using System.Text.RegularExpressions;
 using Mendeleev.Application.Accounts.EnsureTelegramUser;
 using Mendeleev.Application.Accounts.LinkTelegram;
 using Mendeleev.Application.Subscriptions.Trial;
+using Mendeleev.Domain.Payments;
+using Mendeleev.Domain.Tariffs;
 using Mendeleev.Domain.Users;
 using Mendeleev.IntegrationTests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -123,6 +125,37 @@ namespace Mendeleev.IntegrationTests
             using CabinetSite.Browser third = _site.NewBrowser();
             (await third.SubmitAsync("/login", fields: ("accountKey", oldKey))).StatusCode.ShouldBe(HttpStatusCode.OK);
             (await third.SubmitAsync("/login", fields: ("accountKey", newKey))).StatusCode.ShouldBe(HttpStatusCode.Redirect);
+        }
+
+        [Fact]
+        public async Task ReturnFromTheAggregator_FindsThePayment_InThePathAndInTheOldQuery()
+        {
+            // ТЗ 27: Lava refuses return addresses with a query string, so the payment id is in the path; the
+            // ?paymentId= links handed out before keep working.
+            using CabinetSite.Browser browser = _site.NewBrowser();
+            await RegisterAsync(browser);
+            Guid paymentId = await _site.WithDbAsync(async db =>
+            {
+                User user = await db.Users.SingleAsync(u => u.AccountKeyHash != null);
+                var tariff = Tariff.Create("return_test", "Тест возврата", TariffTier.Basic, 199, 30, 3, null, [Guid.NewGuid()], true, 99);
+                db.Tariffs.Add(tariff);
+                await db.SaveChangesAsync();
+
+                var payment = Payment.Create(user.Id, tariff, "lava", DateTime.UtcNow);
+                payment.MarkPending("inv-1", "https://pay.lava.ru/invoice/inv-1", DateTime.UtcNow.AddHours(1), DateTime.UtcNow);
+                db.Payments.Add(payment);
+                await db.SaveChangesAsync();
+                return payment.Id;
+            });
+
+            foreach (string path in new[] { $"/pay/return/{paymentId}", $"/pay/return?paymentId={paymentId}" })
+            {
+                using HttpResponseMessage response = await browser.GetAsync(path);
+                response.StatusCode.ShouldBe(HttpStatusCode.OK);
+                string html = await response.Content.ReadAsStringAsync();
+                html.ShouldContain($"data-payment-id=\"{paymentId}\"");
+                html.ShouldContain($"href=\"/pay/return/{paymentId}\"");
+            }
         }
 
         [Fact]

@@ -12,6 +12,8 @@ namespace Mendeleev.Web.Pages.Pay
     /// Return from the aggregator (ТЗ 27, «Кабинет»). A cabinet user sees «Проверяем оплату…», the page
     /// polls every 3 seconds up to 60 and shows the result; if the payment is still not confirmed —
     /// «Проверить ещё раз» and support. A bot user, who has no cabinet session, is sent back to the bot.
+    /// The payment id is in the path (<c>/pay/return/{id}</c>, Lava refuses a query string); <c>?paymentId=</c>
+    /// still works for links handed out before.
     /// </summary>
     public sealed class ReturnModel(ICommandHandler<CheckPaymentCommand, PaymentCheckResult> checkPayment) : PageModel
     {

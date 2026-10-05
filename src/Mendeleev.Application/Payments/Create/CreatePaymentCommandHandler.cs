@@ -88,7 +88,8 @@ namespace Mendeleev.Application.Payments.Create
                         payment.Amount,
                         payment.Currency,
                         options.DescriptionTemplate.Replace("{tariff}", tariff.Name, StringComparison.Ordinal),
-                        $"{serviceOptions.Value.SiteBaseUrl}/pay/return?paymentId={payment.Id}",
+                        // In the path: Lava refuses return addresses with a query string.
+                        $"{serviceOptions.Value.SiteBaseUrl}/pay/return/{payment.Id}",
                         user.Email),
                     cancellationToken);
             }
