@@ -54,7 +54,7 @@ app.UseSerilogRequestLogging(options =>
         : Serilog.Events.LogEventLevel.Information;
 });
 
-// Only the cabinet's own script and nothing else: no third-party scripts, fonts or analytics (FR-WEB-10).
+// The site's own styles, fonts, icons and the cabinet's script: no third-party scripts, fonts or analytics (FR-WEB-10).
 app.UseStaticFiles();
 
 app.UseRouting();

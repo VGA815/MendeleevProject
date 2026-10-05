@@ -1,0 +1,1165 @@
+/*
+ * Mendeleev, direction «Лаборатория» (DESIGN.md): a cell of the periodic table, the 80 px grid, monospaced labels.
+ * Everything comes from this site (FR-WEB-10). Fonts: Fontsource 5.3.0 subsets of Geologica and IBM Plex Mono,
+ * SIL OFL 1.1 (fonts/OFL-*.txt); a page downloads only the subsets its characters need.
+ */
+
+@font-face {
+    font-family: "Geologica";
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url("/fonts/geologica-cyrillic-wght-normal.woff2") format("woff2");
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+    font-family: "Geologica";
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url("/fonts/geologica-latin-wght-normal.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+        U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* The rouble sign lives here. */
+@font-face {
+    font-family: "Geologica";
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url("/fonts/geologica-latin-ext-wght-normal.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+        U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+    font-family: "IBM Plex Mono";
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url("/fonts/ibm-plex-mono-cyrillic-500-normal.woff2") format("woff2");
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+    font-family: "IBM Plex Mono";
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url("/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+        U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: "IBM Plex Mono";
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url("/fonts/ibm-plex-mono-latin-ext-500-normal.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+        U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ---------- Tokens ---------- */
+
+:root {
+    color-scheme: light dark;
+
+    /* Brand tokens, as in DESIGN.md («Цвет»). */
+    --md-bg: #F4F3EE;
+    --md-surface: #FFFFFF;
+    --md-ink: #0E1116;
+    --md-ink-muted: #5B6170;
+    --md-line: #D9D8D2;
+    --md-accent: #2F5BFF;
+    --md-on-accent: #FFFFFF;
+    --md-accent-soft: #E3E9FF;
+    --md-inverse-bg: #0E1116;
+    --md-inverse-ink: #F4F3EE;
+    --md-decor: #C9D3FF;
+    --md-success: #12A150;
+    --md-warning: #E08A00;
+    --md-danger: #E5484D;
+    --md-radius-card: 4px;
+    --md-radius-chip: 2px;
+
+    /* Derived for the site. Contrast ratios are WCAG 2.1. */
+    --md-link: var(--md-accent);       /* 4.7 on bg, 5.2 on surface */
+    --md-accent-hover: #1F48E8;        /* white on it: 6.7 */
+    --md-on-status: #0E1116;           /* text and icons on success / warning / danger in both themes: 5.6 / 7.0 / 4.8 */
+    --md-field: var(--md-ink-muted);   /* borders of inputs: at least 3:1 against the surface */
+    --md-grid-line: color-mix(in srgb, var(--md-decor) 50%, transparent); /* as on the cover in Figma */
+
+    --md-font-sans: "Geologica", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --md-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+
+    --md-grid: 80px;
+    --md-gutter: 16px;
+    --md-container: 1040px; /* 13 cells of the grid */
+
+    /* Glyphs for masks: the colour comes from the element. */
+    --md-icon-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.5 8.5l3.5 3.5 7.5-8' fill='none' stroke='%23000' stroke-width='2.4'/%3E%3C/svg%3E");
+    --md-icon-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.8 2h2.4v7.5H6.8zm0 9.5h2.4V14H6.8z'/%3E%3C/svg%3E");
+    --md-icon-info: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.8 2h2.4v2.5H6.8zm0 4.5h2.4V14H6.8z'/%3E%3C/svg%3E");
+    --md-icon-cross: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 3l10 10M13 3L3 13' fill='none' stroke='%23000' stroke-width='2.4'/%3E%3C/svg%3E");
+}
+
+/* Dark: the inverse tokens become the page. The accent stays for fills (white on it: 5.2); links get a lighter
+   cobalt, since #2F5BFF on #0E1116 is only 3.6. */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --md-bg: #0E1116;
+        --md-surface: #161A21;
+        --md-ink: #F4F3EE;
+        --md-ink-muted: #9AA0AD;   /* 6.7 on surface */
+        --md-line: #2A2F39;
+        --md-accent-soft: #19264D;
+        --md-decor: #1C2339;
+        --md-link: #7F9BFF;        /* 6.7 on surface, 7.2 on bg */
+        --md-field: #6B7282;       /* 3.6 on surface */
+        --md-grid-line: var(--md-decor);
+    }
+}
+
+/* ---------- Base ---------- */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+/* cabinet.js toggles blocks by this attribute; a component's own display must not win over it. */
+[hidden] {
+    display: none !important;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    font: 400 16px/1.55 var(--md-font-sans);
+    color: var(--md-ink);
+    background: var(--md-bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3 {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+}
+
+h1 {
+    margin: 0 0 20px;
+    font-size: clamp(1.875rem, 1.35rem + 2.2vw, 2.5rem);
+    line-height: 1.1;
+}
+
+h2 {
+    margin: 40px 0 12px;
+    font-size: 1.375rem;
+    line-height: 1.25;
+}
+
+h3 {
+    margin: 24px 0 8px;
+    font-size: 1.125rem;
+    line-height: 1.3;
+}
+
+p,
+ul,
+ol,
+dl {
+    margin: 0 0 16px;
+}
+
+a {
+    color: var(--md-link);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+}
+
+a:hover {
+    text-decoration-thickness: 2px;
+}
+
+b,
+strong {
+    font-weight: 600;
+}
+
+code {
+    padding: 0.1em 0.35em;
+    font: 500 0.875em/1.4 var(--md-font-mono);
+    background: var(--md-accent-soft);
+    border-radius: var(--md-radius-chip);
+}
+
+:focus-visible {
+    outline: 2px solid var(--md-accent);
+    outline-offset: 2px;
+}
+
+::selection {
+    color: var(--md-on-accent);
+    background: var(--md-accent);
+}
+
+.muted {
+    color: var(--md-ink-muted);
+}
+
+/* Labels and codes: IBM Plex Mono Medium in capitals (DESIGN.md, «Метки и коды»). */
+.label,
+label[for],
+th,
+dt,
+.site-nav,
+.site-footer,
+.subnav,
+.chip,
+.tariff-period {
+    font-family: var(--md-font-mono);
+    font-weight: 500;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.label,
+dt {
+    display: block;
+    color: var(--md-ink-muted);
+}
+
+/* ---------- Page ---------- */
+
+.container {
+    width: 100%;
+    max-width: calc(var(--md-container) + 2 * var(--md-gutter));
+    margin: 0 auto;
+    padding: 0 var(--md-gutter);
+}
+
+.site-header {
+    background: var(--md-bg);
+    border-bottom: 1px solid var(--md-line);
+}
+
+.site-header .container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 28px;
+    min-height: 64px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+}
+
+/* Lockup: below 64 px the mark goes without «101» (DESIGN.md, «Знак и логотип»). */
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-right: auto;
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--md-ink);
+    text-decoration: none;
+}
+
+.brand img {
+    display: block;
+    width: 32px;
+    height: 32px;
+}
+
+.site-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 24px;
+}
+
+.site-nav form {
+    display: inline;
+    margin: 0;
+}
+
+.site-nav a,
+.site-nav .link-button {
+    padding: 6px 0 4px;
+    color: var(--md-ink);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+}
+
+.site-nav a:hover,
+.site-nav .link-button:hover {
+    color: var(--md-link);
+}
+
+.site-nav a[aria-current="page"] {
+    border-bottom-color: var(--md-accent);
+}
+
+.link-button {
+    padding: 0;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+
+.site-main {
+    flex: 1 0 auto;
+    padding: 40px 0 64px;
+}
+
+/* The grid of the brand (DESIGN.md, «Декор»): lines every 80 px from the left edge of the content, so a cell
+   of three by three is exactly the mark on the home page. */
+.grid-band {
+    padding-top: var(--md-grid);
+    background-image:
+        linear-gradient(to right, var(--md-grid-line) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--md-grid-line) 1px, transparent 1px);
+    background-size: var(--md-grid) var(--md-grid);
+    background-position: calc(50% - var(--md-container) / 2 + var(--md-grid) / 2) 0;
+}
+
+.site-footer {
+    color: var(--md-ink-muted);
+    background: var(--md-bg);
+    border-top: 1px solid var(--md-line);
+}
+
+.site-footer .container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px 24px;
+    padding-top: 20px;
+    padding-bottom: 24px;
+}
+
+.site-footer nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+}
+
+.site-footer a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.site-footer a:hover {
+    color: var(--md-ink);
+    text-decoration: underline;
+}
+
+.prose {
+    max-width: 720px;
+}
+
+.prose h2 {
+    margin-top: 32px;
+}
+
+.prose li + li {
+    margin-top: 6px;
+}
+
+/* ---------- Components ---------- */
+
+.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 10px 20px;
+    font: 600 0.9375rem/1.2 var(--md-font-sans);
+    letter-spacing: 0;
+    text-align: center;
+    text-decoration: none;
+    text-transform: none;
+    color: var(--md-on-accent);
+    background: var(--md-accent);
+    border: 1px solid var(--md-accent);
+    border-radius: var(--md-radius-chip);
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.button:hover {
+    background: var(--md-accent-hover);
+    border-color: var(--md-accent-hover);
+}
+
+.button.secondary {
+    color: var(--md-ink);
+    background: transparent;
+    border-color: var(--md-ink);
+}
+
+.button.secondary:hover {
+    background: var(--md-accent-soft);
+    border-color: var(--md-accent);
+}
+
+/* Text on a status colour is always ink (DESIGN.md, «Контраст»). */
+.button.danger {
+    color: var(--md-on-status);
+    background: var(--md-danger);
+    border-color: var(--md-danger);
+}
+
+.button.danger:hover {
+    background: color-mix(in srgb, var(--md-danger) 85%, #FFFFFF);
+    border-color: color-mix(in srgb, var(--md-danger) 85%, #FFFFFF);
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 20px;
+    margin: 24px 0;
+}
+
+.panel {
+    margin: 24px 0;
+    padding: 24px;
+    background: var(--md-surface);
+    border: 1px solid var(--md-line);
+    border-radius: var(--md-radius-card);
+}
+
+.panel > :first-child {
+    margin-top: 0;
+}
+
+.panel > :last-child {
+    margin-bottom: 0;
+}
+
+/* Notices: a status cell with a glyph next to the text, so the meaning never rests on colour alone. */
+.notice {
+    --notice: var(--md-accent);
+    --notice-ink: var(--md-on-accent);
+    --notice-icon: var(--md-icon-info);
+    position: relative;
+    margin: 20px 0;
+    padding: 14px 16px 14px 52px;
+    background: var(--md-surface);
+    border: 1px solid var(--md-line);
+    border-left: 3px solid var(--notice);
+    border-radius: var(--md-radius-card);
+}
+
+.notice::before,
+.notice::after {
+    content: "";
+    position: absolute;
+    top: 15px;
+    left: 16px;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--md-radius-chip);
+}
+
+.notice::before {
+    background: var(--notice);
+}
+
+.notice::after {
+    background: var(--notice-ink);
+    -webkit-mask: var(--notice-icon) center / 14px no-repeat;
+    mask: var(--notice-icon) center / 14px no-repeat;
+}
+
+.notice.ok {
+    --notice: var(--md-success);
+    --notice-ink: var(--md-on-status);
+    --notice-icon: var(--md-icon-check);
+}
+
+.notice.warn {
+    --notice: var(--md-warning);
+    --notice-ink: var(--md-on-status);
+    --notice-icon: var(--md-icon-alert);
+}
+
+.notice.error {
+    --notice: var(--md-danger);
+    --notice-ink: var(--md-on-status);
+    --notice-icon: var(--md-icon-alert);
+}
+
+.notice > p {
+    margin: 0 0 8px;
+}
+
+.notice > :last-child {
+    margin-bottom: 0;
+}
+
+.chip {
+    --chip-icon: var(--md-icon-info);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    white-space: nowrap;
+    color: var(--md-ink);
+    background: var(--md-accent-soft);
+    border-radius: var(--md-radius-chip);
+}
+
+.chip::before {
+    content: "";
+    flex: none;
+    width: 12px;
+    height: 12px;
+    background: currentColor;
+    -webkit-mask: var(--chip-icon) center / contain no-repeat;
+    mask: var(--chip-icon) center / contain no-repeat;
+}
+
+.chip.success {
+    --chip-icon: var(--md-icon-check);
+    color: var(--md-on-status);
+    background: var(--md-success);
+}
+
+.chip.warning {
+    --chip-icon: var(--md-icon-alert);
+    color: var(--md-on-status);
+    background: var(--md-warning);
+}
+
+.chip.danger {
+    --chip-icon: var(--md-icon-cross);
+    color: var(--md-on-status);
+    background: var(--md-danger);
+}
+
+.table-wrap {
+    overflow-x: auto;
+    margin: 20px 0;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+    padding: 12px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--md-line);
+}
+
+th {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    color: var(--md-ink-muted);
+    border-bottom-color: var(--md-ink);
+}
+
+tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+label[for] {
+    display: block;
+    margin: 20px 0 8px;
+    color: var(--md-ink-muted);
+}
+
+input[type="text"],
+input[type="password"] {
+    display: block;
+    width: 100%;
+    max-width: 420px;
+    min-height: 48px;
+    padding: 10px 14px;
+    font: 400 1rem/1.4 var(--md-font-sans);
+    color: var(--md-ink);
+    background: var(--md-surface);
+    border: 1px solid var(--md-field);
+    border-radius: var(--md-radius-chip);
+}
+
+input[type="text"]:focus-visible,
+input[type="password"]:focus-visible {
+    border-color: var(--md-accent);
+    outline-offset: 0;
+}
+
+/* An example of the format, lighter than a typed value. */
+input::placeholder {
+    color: var(--md-ink-muted);
+    opacity: 0.6;
+}
+
+input.code {
+    font-family: var(--md-font-mono);
+    font-weight: 500;
+    font-size: 1.125rem;
+    letter-spacing: 0.08em;
+}
+
+.check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 20px 0 8px;
+    cursor: pointer;
+}
+
+.check input {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin: 3px 0 0;
+    accent-color: var(--md-accent);
+}
+
+/* The account key: shown once, like a coupon with a code (DESIGN.md, «Промокод»). */
+.coupon {
+    margin: 24px 0;
+    padding: 20px;
+    background: var(--md-surface);
+    border: 1px dashed var(--md-ink-muted);
+    border-radius: var(--md-radius-card);
+}
+
+.secret {
+    margin: 0 0 16px;
+    font: 500 clamp(1.375rem, 1rem + 1.6vw, 1.75rem)/1.3 var(--md-font-mono);
+    letter-spacing: 0.06em;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+/* The subscription link: one click selects all of it. */
+.link {
+    padding: 12px 14px;
+    font: 500 0.8125rem/1.5 var(--md-font-mono);
+    word-break: break-all;
+    background: var(--md-bg);
+    border: 1px solid var(--md-line);
+    border-radius: var(--md-radius-chip);
+    user-select: all;
+}
+
+/* A QR code is scanned off a white background in both themes. */
+.qr {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    padding: 8px;
+    background: #FFFFFF;
+    border: 1px solid var(--md-line);
+    border-radius: var(--md-radius-chip);
+    image-rendering: pixelated;
+}
+
+.content {
+    white-space: pre-line;
+}
+
+/* Instructions and the FAQ: joined cells that open one by one. */
+.accordion {
+    margin: 24px 0;
+}
+
+.accordion > details {
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+}
+
+.accordion > details + details {
+    border-top: 0;
+}
+
+.accordion > details:first-child {
+    border-radius: var(--md-radius-card) var(--md-radius-card) 0 0;
+}
+
+.accordion > details:last-child {
+    border-radius: 0 0 var(--md-radius-card) var(--md-radius-card);
+}
+
+.accordion > details:only-child {
+    border-radius: var(--md-radius-card);
+}
+
+.accordion summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 20px;
+    font-weight: 600;
+    list-style: none;
+    cursor: pointer;
+}
+
+.accordion summary::-webkit-details-marker {
+    display: none;
+}
+
+.accordion summary::after {
+    content: "+";
+    flex: none;
+    font: 500 1.25rem/1 var(--md-font-mono);
+    color: var(--md-ink-muted);
+}
+
+.accordion details[open] > summary::after {
+    content: "\2212";
+}
+
+.accordion summary:hover {
+    color: var(--md-link);
+}
+
+.accordion .content {
+    padding: 0 20px 20px;
+}
+
+/* ---------- Cabinet ---------- */
+
+/* The cabinet's sections are cells of a table, numbered like elements. */
+.subnav {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    margin: 0 0 32px;
+    counter-reset: subnav;
+    border-top: 1px solid var(--md-line);
+    border-left: 1px solid var(--md-line);
+}
+
+.subnav a {
+    counter-increment: subnav;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 64px;
+    padding: 8px 12px 10px;
+    color: var(--md-ink);
+    text-decoration: none;
+    background: var(--md-surface);
+    border-right: 1px solid var(--md-line);
+    border-bottom: 1px solid var(--md-line);
+}
+
+.subnav a::before {
+    content: counter(subnav, decimal-leading-zero);
+    content: counter(subnav, decimal-leading-zero) / "";
+    font-size: 0.625rem;
+    color: var(--md-ink-muted);
+}
+
+.subnav a:hover {
+    background: var(--md-accent-soft);
+}
+
+.subnav a[aria-current="page"] {
+    color: var(--md-on-accent);
+    background: var(--md-accent);
+}
+
+.subnav a[aria-current="page"]::before {
+    color: inherit;
+}
+
+.sub-card {
+    padding: 0;
+    overflow: hidden;
+}
+
+.sub-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px 32px;
+    padding: 24px;
+}
+
+.sub-tariff {
+    margin: 8px 0 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+}
+
+.sub-status .chip {
+    margin-top: 8px;
+}
+
+/* Facts of the subscription: cells divided by hairlines. */
+.stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1px;
+    margin: 0;
+    background: var(--md-line);
+    border-top: 1px solid var(--md-line);
+    border-bottom: 1px solid var(--md-line);
+}
+
+.stat {
+    flex: 1 1 200px;
+    padding: 18px 24px 20px;
+    background: var(--md-surface);
+}
+
+.stat dd {
+    margin: 10px 0 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.stat-big dd {
+    font-size: 3rem;
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+
+.sub-section {
+    padding: 24px;
+}
+
+.sub-section + .sub-section {
+    border-top: 1px solid var(--md-line);
+}
+
+.sub-section > :first-child {
+    margin-top: 0;
+}
+
+.sub-section > :last-child {
+    margin-bottom: 0;
+}
+
+.sub-section > .notice:first-child {
+    margin-top: 0;
+}
+
+.sub-link {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    gap: 24px 40px;
+    align-items: start;
+}
+
+.sub-link h2 {
+    margin: 0 0 12px;
+    font-size: 1.125rem;
+}
+
+.sub-link .actions {
+    margin: 16px 0;
+}
+
+.stat dd .muted {
+    font-weight: 400;
+}
+
+.devices-count {
+    font-size: 1.125rem;
+}
+
+.pay-summary {
+    font-size: 1.375rem;
+    line-height: 1.3;
+}
+
+/* One square per device of the limit, the used ones filled (the sentence above says the same in words). */
+.meter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 20px;
+}
+
+.meter span {
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--md-field);
+    border-radius: var(--md-radius-chip);
+}
+
+.meter span.on {
+    background: var(--md-accent);
+    border-color: var(--md-accent);
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: 16px;
+    margin: 24px 0;
+}
+
+.settings-grid .panel {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+}
+
+.settings-grid h2 {
+    font-size: 1.125rem;
+}
+
+.settings-grid form {
+    margin-top: auto;
+    padding-top: 8px;
+}
+
+/* Numbered steps: 01, 02, 03 — the monospaced numbers of the brand. */
+.steps {
+    margin: 24px 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: step;
+    background: var(--md-surface);
+    border: 1px solid var(--md-line);
+    border-radius: var(--md-radius-card);
+}
+
+.steps > li {
+    counter-increment: step;
+    position: relative;
+    padding: 16px 20px 16px 68px;
+    overflow-wrap: anywhere;
+}
+
+.steps > li + li {
+    border-top: 1px solid var(--md-line);
+}
+
+.steps > li::before {
+    content: counter(step, decimal-leading-zero);
+    position: absolute;
+    top: 16px;
+    left: 20px;
+    font: 500 0.875rem/1.55 var(--md-font-mono);
+    color: var(--md-link);
+}
+
+.support {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid var(--md-line);
+}
+
+/* ---------- Tariffs ---------- */
+
+/* A tariff is an element cell: period in the corner like the atomic number, the name like the symbol. */
+.tariffs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 16px;
+    margin: 24px 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tariff {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 260px;
+    padding: 20px;
+    background: var(--md-surface);
+    border: 1px solid var(--md-line);
+    border-radius: var(--md-radius-card);
+}
+
+.tariff-period {
+    color: var(--md-link);
+}
+
+.tariff-name {
+    margin: 0;
+    font-size: 1.75rem;
+    line-height: 1.1;
+}
+
+.tariff-facts {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0;
+    padding: 10px 0;
+    border-top: 1px solid var(--md-line);
+    border-bottom: 1px solid var(--md-line);
+}
+
+.tariff-facts dd {
+    margin: 0;
+}
+
+/* The monthly equivalent is shown above the price, so the prices of all cards stand on one line. */
+.tariff-price {
+    display: flex;
+    flex-direction: column-reverse;
+    margin: auto 0 0;
+    font-size: 2rem;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+}
+
+.tariff-price .muted {
+    margin-bottom: 6px;
+    font-size: 0.875rem;
+    font-weight: 400;
+    letter-spacing: 0;
+}
+
+.tariff form {
+    margin: 0;
+}
+
+.tariff .button {
+    width: 100%;
+}
+
+/* ---------- Home and sign-in ---------- */
+
+.hero {
+    display: grid;
+    grid-template-columns: calc(3 * var(--md-grid)) minmax(0, 1fr);
+    gap: 32px var(--md-grid);
+    align-items: start;
+}
+
+.hero-mark {
+    display: block;
+    width: calc(3 * var(--md-grid));
+    height: calc(3 * var(--md-grid));
+}
+
+.hero h1 {
+    margin: -6px 0 20px;
+    font-size: clamp(2.5rem, 1.6rem + 3.6vw, 4rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+
+.hero .lead {
+    max-width: 34em;
+    font-size: 1.1875rem;
+}
+
+/* Seven cells wide, three from the left edge: the card sits on the grid. */
+.auth {
+    max-width: calc(7 * var(--md-grid));
+    margin: 0 auto;
+}
+
+.auth .panel {
+    margin-top: 0;
+    padding: 32px;
+}
+
+/* ---------- Narrow screens ---------- */
+
+@media (max-width: 1071.98px) {
+    .grid-band {
+        background-position: var(--md-gutter) 0;
+    }
+}
+
+@media (max-width: 719.98px) {
+    .site-main {
+        padding-top: 28px;
+    }
+
+    .grid-band {
+        padding-top: calc(var(--md-grid) / 2);
+        background-position: var(--md-gutter) calc(var(--md-grid) / 2);
+    }
+
+    .hero {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .hero-mark {
+        width: calc(2 * var(--md-grid));
+        height: calc(2 * var(--md-grid));
+    }
+
+    .site-header .container,
+    .site-nav {
+        column-gap: 16px;
+    }
+
+    .panel,
+    .auth .panel {
+        padding: 20px 16px;
+    }
+
+    .panel.sub-card {
+        padding: 0;
+    }
+
+    .sub-head,
+    .sub-section {
+        padding: 20px 16px;
+    }
+
+    .stat {
+        padding: 16px;
+    }
+
+    .sub-link {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sub-link .qr {
+        width: 220px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+    }
+}
