@@ -16,6 +16,7 @@ namespace Mendeleev.Application.Tariffs.GetPurchasableTariffs
         decimal Price,
         int PeriodDays,
         int DeviceLimit,
+        long? TrafficLimitBytes,
         decimal MonthlyEquivalent);
 
     internal sealed class GetPurchasableTariffsQueryHandler(IApplicationDbContext db)
@@ -31,7 +32,7 @@ namespace Mendeleev.Application.Tariffs.GetPurchasableTariffs
                 .ToListAsync(cancellationToken);
 
             return Result.Success<IReadOnlyList<TariffView>>(tariffs
-                .Select(t => new TariffView(t.Code, t.Name, t.Tier, t.Price, t.PeriodDays, t.DeviceLimit, t.MonthlyEquivalent))
+                .Select(t => new TariffView(t.Code, t.Name, t.Tier, t.Price, t.PeriodDays, t.DeviceLimit, t.TrafficLimitBytes, t.MonthlyEquivalent))
                 .ToList());
         }
     }

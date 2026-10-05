@@ -1,3 +1,4 @@
+@using Mendeleev.Web.Bot.Content
 @model TariffCard
 @{
     var ru = System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
@@ -9,6 +10,8 @@
     <dl class="tariff-facts">
         <dt>Устройств</dt>
         <dd>до @tariff.DeviceLimit</dd>
+        <dt>Трафик</dt>
+        <dd>@(tariff.TrafficLimitBytes is long bytes ? TextRenderer.FormatBytes(bytes) : "без ограничений")</dd>
     </dl>
     <p class="tariff-price">
         @tariff.Price.ToString("N0", ru) ₽

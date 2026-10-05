@@ -1,24 +1,11 @@
 @page "/contacts"
-@inject IOptions<SiteOptions> Site
-@inject IOptions<ServiceOptions> Service
 @{
     ViewData["Title"] = "Контакты";
 }
 <div class="prose">
     <h1>Контакты</h1>
     <div class="panel">
-        <p><b>@Site.Value.OperatorName</b></p>
-        @if (!string.IsNullOrWhiteSpace(Site.Value.OperatorDetails))
-        {
-            <p class="content">@Site.Value.OperatorDetails</p>
-        }
-        @if (!string.IsNullOrWhiteSpace(Site.Value.SupportEmail))
-        {
-            <p>Поддержка: <a href="mailto:@Site.Value.SupportEmail">@Site.Value.SupportEmail</a></p>
-        }
-        @if (!string.IsNullOrEmpty(Service.Value.BotUrl))
-        {
-            <p>Telegram-бот: <a href="@Service.Value.BotUrl" rel="noopener">@Service.Value.BotUrl</a></p>
-        }
+        <partial name="_Requisites" />
     </div>
+    <p>Вопросы об оплате и работе сервиса, заявления на возврат денег и претензии принимаем по почте поддержки. Порядок возврата — в разделе оферты <a href="/offer#refund">«Отмена оплаты и возврат денег»</a>.</p>
 </div>

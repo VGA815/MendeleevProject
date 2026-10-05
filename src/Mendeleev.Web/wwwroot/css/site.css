@@ -390,6 +390,18 @@ dt {
     margin-top: 6px;
 }
 
+/* The seller and the contacts (contacts page, offer, policy): a label over each value. */
+.requisites {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 20px 32px;
+}
+
+.requisites dd {
+    margin: 6px 0 0;
+    overflow-wrap: anywhere;
+}
+
 /* ---------- Components ---------- */
 
 .button {
@@ -1019,11 +1031,13 @@ input.code {
     line-height: 1.1;
 }
 
+/* Label on the left, value on the right, a row per fact. */
 .tariff-facts {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto auto;
     align-items: baseline;
     justify-content: space-between;
-    gap: 12px;
+    gap: 8px 12px;
     margin: 0;
     padding: 10px 0;
     border-top: 1px solid var(--md-line);
@@ -1032,6 +1046,7 @@ input.code {
 
 .tariff-facts dd {
     margin: 0;
+    text-align: right;
 }
 
 /* The monthly equivalent is shown above the price, so the prices of all cards stand on one line. */

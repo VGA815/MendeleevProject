@@ -44,7 +44,15 @@ namespace Mendeleev.Web
             // Cyrillic stays as is in the pages instead of &#x…; entities — the encoder still escapes markup.
             services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(options =>
                 options.TextEncoderSettings = new System.Text.Encodings.Web.TextEncoderSettings(System.Text.Unicode.UnicodeRanges.All));
-            services.Configure<Pages.SiteOptions>(configuration.GetSection(Pages.SiteOptions.SectionName));
+
+            // Taking payments needs the operator's requisites and contacts on the site: the aggregator's moderation
+            // checks them (lava.ru/site-requirements), the offer names the seller (ТЗ 27, «Публичные страницы»).
+            bool takesPayments = configuration.GetValue<bool>("Payments:Enabled");
+            services.AddOptions<Pages.SiteOptions>()
+                .Bind(configuration.GetSection(Pages.SiteOptions.SectionName))
+                .Validate(o => !takesPayments || !environment.IsProduction() || o.HasRequisites,
+                    "Site:OperatorName, Site:OperatorDetails, Site:Address, Site:Phone and Site:SupportEmail are required in Production when Payments:Enabled.")
+                .ValidateOnStart();
 
             // The fake aggregator turns a click on /dev/fake-pay into a paid subscription (ТЗ 23): Development and
             // Staging only. Outside Development its webhooks must be signed with a secret that is not in Git.
