@@ -60,7 +60,12 @@ namespace Mendeleev.IntegrationTests.Infrastructure
 
         public RecordingAlerts Alerts { get; }
 
-        public static async Task<TestApp> CreateAsync(PostgresFixture postgres)
+        /// <param name="settings">Overrides of the defaults below, e.g. another active aggregator.</param>
+        /// <param name="configureServices">Runs after the real registrations, e.g. to stub an aggregator's HTTP.</param>
+        public static async Task<TestApp> CreateAsync(
+            PostgresFixture postgres,
+            IReadOnlyDictionary<string, string?>? settings = null,
+            Action<IServiceCollection>? configureServices = null)
         {
             string database = "t_" + Guid.NewGuid().ToString("N");
             await using (var connection = new NpgsqlConnection(postgres.Container.GetConnectionString()))
@@ -85,6 +90,7 @@ namespace Mendeleev.IntegrationTests.Infrastructure
                     ["Payments:Fake:WebhookSecret"] = FakeWebhookSecret,
                     ["Jobs:Enabled"] = "false",
                 })
+                .AddInMemoryCollection(settings ?? new Dictionary<string, string?>())
                 .Build();
 
             // Whole seconds: PostgreSQL keeps microseconds, so comparisons after a round trip stay exact.
@@ -99,6 +105,7 @@ namespace Mendeleev.IntegrationTests.Infrastructure
             services.AddInfrastructure(configuration);
             services.AddSingleton<IUserMessenger, RecordingMessenger>();
             services.AddSingleton<IAlertSink, RecordingAlerts>();
+            configureServices?.Invoke(services);
 
             ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
             var app = new TestApp(provider, clock);
