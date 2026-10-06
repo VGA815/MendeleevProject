@@ -2,16 +2,18 @@ using System.Net;
 using System.Text.RegularExpressions;
 using Mendeleev.Domain.Tariffs;
 using Mendeleev.IntegrationTests.Infrastructure;
+using Mendeleev.Web.Bot.Content;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace Mendeleev.IntegrationTests
 {
     /// <summary>
     /// ТЗ 27, «Публичные страницы»: what the aggregator's moderation checks on the site (lava.ru/site-requirements) —
-    /// the seller with requisites and contacts, filled-in tariff cards with prices, the refund terms, the personal
-    /// data policy, and that every link leads to a working page.
+    /// support contacts, filled-in tariff cards with prices, the refund terms, the personal data policy, and that
+    /// every link leads to a working page. The seller's name, requisites and address are not published (05.10).
     /// </summary>
     [Collection(nameof(PostgresCollection))]
     public sealed partial class PublicPagesTests(PostgresFixture postgres) : IAsyncLifetime
@@ -53,41 +55,42 @@ namespace Mendeleev.IntegrationTests
         }
 
         [Fact]
-        public async Task InProductionWithPayments_TheSellerAndTheContacts_AreOnTheContactsTheOfferAndThePolicy()
+        public async Task InProductionWithPayments_TheSupportContacts_AreOnTheContactsTheOfferAndThePolicy()
         {
             using WebApplicationFactory<Web.Program> production = _site.WithWebHostBuilder(builder => TakingPaymentsInProduction(builder)
-                .UseSetting("Site:OperatorName", "Иванов Иван Иванович")
-                .UseSetting("Site:OperatorDetails", "Самозанятый (плательщик НПД), ИНН 123456789012")
-                .UseSetting("Site:Address", "г. Новосибирск")
                 .UseSetting("Site:Phone", "+7 (999) 123-45-67")
                 .UseSetting("Service:BotUsername", "mendeleev_test_bot"));
             using HttpClient client = production.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
 
+            // The support account is the bot's one from content/bot.yaml, which outranks the settings of the test.
+            string supportUrl = production.Services.GetRequiredService<IOptionsMonitor<BotContent>>().CurrentValue.SupportUrl;
+            supportUrl.ShouldStartWith("https://t.me/");
+            string supportLink = $"<a href=\"{supportUrl}\" rel=\"noopener\">@{supportUrl["https://t.me/".Length..]}</a>";
+
             foreach (string path in new[] { "/contacts", "/offer", "/privacy" })
             {
                 string html = WebUtility.HtmlDecode(await client.GetStringAsync(path));
-                html.ShouldContain("Иванов Иван Иванович", customMessage: path);
-                html.ShouldContain("Самозанятый (плательщик НПД), ИНН 123456789012", customMessage: path);
-                html.ShouldContain("г. Новосибирск", customMessage: path);
                 html.ShouldContain("href=\"tel:+79991234567\"", customMessage: path);
                 html.ShouldContain("href=\"mailto:support@site.test\"", customMessage: path);
+                html.ShouldContain(supportLink, customMessage: path);
                 html.ShouldContain("href=\"https://t.me/mendeleev_test_bot\"", customMessage: path);
             }
 
             string offer = WebUtility.HtmlDecode(await client.GetStringAsync("/offer"));
+            offer.ShouldContain("Администрация сервиса «Mendeleev» (далее — Исполнитель)");
             offer.ShouldContain("<h2 id=\"refund\">6. Отмена оплаты и возврат денег</h2>");
             offer.ShouldContain("отменяется автоматически через 60 мин.");
             (await client.GetStringAsync("/privacy")).ShouldContain("<h1>Политика обработки персональных данных</h1>");
         }
 
         [Fact]
-        public void InProductionWithPayments_WithoutTheRequisites_TheHostDoesNotStart()
+        public void InProductionWithPayments_WithoutASupportEmail_TheHostDoesNotStart()
         {
             using var host = new BareProductionHost();
 
             OptionsValidationException exception = Should.Throw<OptionsValidationException>(() => host.CreateClient());
 
-            exception.Message.ShouldContain("Site:OperatorName, Site:OperatorDetails, Site:Address, Site:Phone and Site:SupportEmail are required");
+            exception.Message.ShouldContain("Site:SupportEmail is required in Production when Payments:Enabled");
         }
 
         /// <summary>
@@ -167,7 +170,7 @@ namespace Mendeleev.IntegrationTests
         [GeneratedRegex("href=\"([^\"]*)\"")]
         private static partial Regex LinkRegex();
 
-        /// <summary>Production taking payments, the operator left as in appsettings.json, no database: it must fail first.</summary>
+        /// <summary>Production taking payments, the support email left empty as in appsettings.json, no database: it must fail first.</summary>
         private sealed class BareProductionHost : WebApplicationFactory<Web.Program>
         {
             protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -177,7 +180,6 @@ namespace Mendeleev.IntegrationTests
                 builder.UseSetting("Accounts:KeyPepper", Convert.ToBase64String(new byte[32]));
                 builder.UseSetting("Remnawave:UseInMemory", "true");
                 builder.UseSetting("Jobs:Enabled", "false");
-                builder.UseSetting("Site:SupportEmail", "support@site.test");
             }
         }
     }

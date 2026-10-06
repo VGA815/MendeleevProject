@@ -45,13 +45,13 @@ namespace Mendeleev.Web
             services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(options =>
                 options.TextEncoderSettings = new System.Text.Encodings.Web.TextEncoderSettings(System.Text.Unicode.UnicodeRanges.All));
 
-            // Taking payments needs the operator's requisites and contacts on the site: the aggregator's moderation
-            // checks them (lava.ru/site-requirements), the offer names the seller (ТЗ 27, «Публичные страницы»).
+            // The offer sends refund requests and claims to the support email, and the aggregator's moderation looks
+            // for it (lava.ru/site-requirements; ТЗ 27, «Публичные страницы»): production takes no payments without it.
             bool takesPayments = configuration.GetValue<bool>("Payments:Enabled");
             services.AddOptions<Pages.SiteOptions>()
                 .Bind(configuration.GetSection(Pages.SiteOptions.SectionName))
-                .Validate(o => !takesPayments || !environment.IsProduction() || o.HasRequisites,
-                    "Site:OperatorName, Site:OperatorDetails, Site:Address, Site:Phone and Site:SupportEmail are required in Production when Payments:Enabled.")
+                .Validate(o => !takesPayments || !environment.IsProduction() || !string.IsNullOrWhiteSpace(o.SupportEmail),
+                    "Site:SupportEmail is required in Production when Payments:Enabled.")
                 .ValidateOnStart();
 
             // The fake aggregator turns a click on /dev/fake-pay into a paid subscription (ТЗ 23): Development and

@@ -390,14 +390,14 @@ dt {
     margin-top: 6px;
 }
 
-/* The seller and the contacts (contacts page, offer, policy): a label over each value. */
-.requisites {
+/* Support contacts (contacts page, offer, policy): a label over each value. */
+.contact-list {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
     gap: 20px 32px;
 }
 
-.requisites dd {
+.contact-list dd {
     margin: 6px 0 0;
     overflow-wrap: anywhere;
 }

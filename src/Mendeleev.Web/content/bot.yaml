@@ -3,12 +3,12 @@
 # Подстановки в фигурных скобках ({date}, {url}, …) заполняет сервис; значения экранируются.
 # Никакой рекламы и публичных инструкций по обходу блокировок вне бота и кабинета (опросник 3.3).
 #
-# TODO до запуска: проверить ссылки на приложения для всех платформ, контакт поддержки,
+# TODO до запуска: проверить ссылки на приложения для всех платформ,
 # запасные клиенты с HWID (ТЗ 26, «Открытые вопросы»).
 
 BotContent:
-  SupportUrl: "https://t.me/your_support_account"
-  SupportEmail: "support@example.com"
+  SupportUrl: "https://t.me/zaykaandre"
+  SupportEmail: "ancuka492@gmail.com"
   ImportUrlTemplate: "{url}"
   UpdateSubscriptionFaqId: "update"
 

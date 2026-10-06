@@ -1,0 +1,43 @@
+@using Mendeleev.Web.Bot.Content
+@inject IOptions<SiteOptions> Site
+@inject IOptions<ServiceOptions> Service
+@inject IOptionsMonitor<BotContent> Content
+@{
+    SiteOptions site = Site.Value;
+    // The support account of the bot's «Написать в поддержку» and of the cabinet (content/bot.yaml).
+    const string TelegramPrefix = "https://t.me/";
+    string supportUrl = Content.CurrentValue.SupportUrl;
+    string supportName = supportUrl.StartsWith(TelegramPrefix, StringComparison.OrdinalIgnoreCase) ? "@" + supportUrl[TelegramPrefix.Length..] : supportUrl;
+}
+@* Support contacts the aggregator's moderation looks for (lava.ru/site-requirements): on the contacts page, in the
+   offer and in the personal data policy. The seller's name, requisites and address are not published (05.10). *@
+<dl class="contact-list">
+    @if (!string.IsNullOrWhiteSpace(site.SupportEmail))
+    {
+        <div>
+            <dt>Почта поддержки</dt>
+            <dd><a href="mailto:@site.SupportEmail">@site.SupportEmail</a></dd>
+        </div>
+    }
+    @if (!string.IsNullOrWhiteSpace(supportUrl))
+    {
+        <div>
+            <dt>Поддержка в Telegram</dt>
+            <dd><a href="@supportUrl" rel="noopener">@supportName</a></dd>
+        </div>
+    }
+    @if (!string.IsNullOrWhiteSpace(site.Phone))
+    {
+        <div>
+            <dt>Телефон поддержки</dt>
+            <dd><a href="tel:@site.PhoneLink">@site.Phone</a></dd>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(Service.Value.BotUrl))
+    {
+        <div>
+            <dt>Telegram-бот</dt>
+            <dd><a href="@Service.Value.BotUrl" rel="noopener">@("@" + Service.Value.BotUsername)</a></dd>
+        </div>
+    }
+</dl>
