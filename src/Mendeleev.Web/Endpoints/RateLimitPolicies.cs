@@ -16,5 +16,8 @@ namespace Mendeleev.Web.Endpoints
 
         /// <summary>Linking code: 5 tries in 10 minutes per account — the lifetime of one code (ТЗ 21).</summary>
         public const string LinkCode = "link-code";
+
+        /// <summary>Promo codes in the cabinet: 10 tries an hour per account, so codes are not guessed by brute force.</summary>
+        public const string Promo = "promo";
     }
 }

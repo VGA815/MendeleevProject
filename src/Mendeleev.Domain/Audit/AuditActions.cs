@@ -16,6 +16,8 @@ namespace Mendeleev.Domain.Audit
         public const string StaffRoleChange = "staff.role_change";
         public const string StaffDisable = "staff.disable";
         public const string StaffEnable = "staff.enable";
+        public const string PromoCreate = "promo.create";
+        public const string PromoDeactivate = "promo.deactivate";
 
         public const string PanelDriftFixed = "panel.drift_fixed";
         public const string PanelUserDeleted = "panel.user_deleted";
@@ -24,5 +26,8 @@ namespace Mendeleev.Domain.Audit
         public const string PaymentFromBlockedUser = "payment.blocked_user";
         public const string TorrentBlockerReport = "abuse.torrent_blocker";
         public const string AccountsMerged = "account.merged";
+
+        /// <summary>The term grew by a promo code's bonus days (ТЗ 22: the term changes only with an audit trail).</summary>
+        public const string PromoBonus = "promo.bonus";
     }
 }

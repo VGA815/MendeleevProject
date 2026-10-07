@@ -32,5 +32,12 @@ namespace Mendeleev.Application.Configuration
 
         /// <summary>Description on the payment page and in the receipt; <c>{tariff}</c> is replaced.</summary>
         public string DescriptionTemplate { get; init; } = "Подписка «{tariff}»";
+
+        /// <summary>
+        /// A promo discount never takes a payment below this many rubles: the aggregator refuses tiny invoices
+        /// (TryBit: 0.1 $ when the customer pays the fees, 2 $ when the merchant does). Prices themselves are
+        /// not affected.
+        /// </summary>
+        public decimal MinAmount { get; init; } = 1m;
     }
 }

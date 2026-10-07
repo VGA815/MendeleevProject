@@ -105,6 +105,73 @@ namespace Mendeleev.Domain.Subscriptions
             return subscription;
         }
 
+        /// <summary>Bonus days of a promo code for a user who never had a subscription (ТЗ 22, «Промокоды»).</summary>
+        public static Subscription CreateFromPromo(long userId, Tariff tariff, int days, string noticeKey, DateTime utcNow)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(days);
+            if (tariff.IsTrial)
+            {
+                throw new ArgumentException("Bonus days are days of a paid tariff.", nameof(tariff));
+            }
+
+            Subscription subscription = New(userId, tariff, SubscriptionStatus.Active, utcNow.AddDays(days), utcNow);
+            subscription.Changed(SubscriptionNotice.AccessIssued, noticeKey, utcNow);
+            return subscription;
+        }
+
+        /// <summary>
+        /// Bonus days of a promo code (FR-SUB-15): the term grows by FR-SUB-04 like after a payment. The days are
+        /// days of the paid service, so a trial becomes an active subscription on <paramref name="paidTariff"/>
+        /// without the trial's traffic limit; an expired one comes back with the same link, an archived one with
+        /// a new link if the panel user is already gone. A disabled (blocked) subscription only gets the days.
+        /// </summary>
+        public void ApplyBonusDays(Tariff paidTariff, int days, string noticeKey, DateTime utcNow)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(days);
+            if (paidTariff.IsTrial)
+            {
+                throw new ArgumentException("Bonus days are days of a paid tariff.", nameof(paidTariff));
+            }
+
+            SubscriptionNotice notice = SubscriptionNotice.PromoBonus;
+
+            switch (Status)
+            {
+                case SubscriptionStatus.Archived:
+                    if (Reactivate(utcNow) == SubscriptionNotice.AccessIssued)
+                    {
+                        notice = SubscriptionNotice.AccessIssued;
+                    }
+                    ExpiresAt = utcNow.AddDays(days);
+                    Status = SubscriptionStatus.Active;
+                    break;
+
+                case SubscriptionStatus.Expired:
+                    StartedAt = utcNow;
+                    ExpiresAt = Later(utcNow, ExpiresAt).AddDays(days);
+                    ExpiredReason = null;
+                    Status = SubscriptionStatus.Active;
+                    break;
+
+                case SubscriptionStatus.Trial:
+                case SubscriptionStatus.Active:
+                    ExpiresAt = Later(utcNow, ExpiresAt).AddDays(days);
+                    Status = SubscriptionStatus.Active;
+                    break;
+
+                case SubscriptionStatus.Disabled:
+                    ExpiresAt = Later(utcNow, ExpiresAt).AddDays(days);
+                    break;
+            }
+
+            if (Tariff.IsTrial)
+            {
+                TariffId = paidTariff.Id;
+                Tariff = paidTariff;
+            }
+            Changed(notice, noticeKey, utcNow);
+        }
+
         /// <summary>
         /// FR-SUB-04: <c>new expiry = max(now, current expiry) + period</c>. A payment during the trial turns
         /// it into an active subscription and lifts the traffic limit; the remaining trial days are kept

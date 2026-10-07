@@ -13,5 +13,8 @@ namespace Mendeleev.Domain.Subscriptions
         LinkReissued = 4,
         Expired = 5,
         TrafficExhausted = 6,
+
+        /// <summary>Bonus days of a promo code were added (FR-SUB-15).</summary>
+        PromoBonus = 7,
     }
 }

@@ -1,3 +1,4 @@
+using Mendeleev.Domain.Promos;
 using Mendeleev.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -17,6 +18,8 @@ namespace Mendeleev.Infrastructure.Users
 
             // The default covers the raw INSERT of GetOrCreateTelegramUserAsync.
             builder.Property(x => x.SessionStamp).HasDefaultValueSql("gen_random_uuid()");
+
+            builder.HasOne<PromoCode>().WithMany().HasForeignKey(x => x.SelectedPromoCodeId).OnDelete(DeleteBehavior.SetNull);
 
             // Partial unique indexes: many rows have no Telegram ID, email or key (ТЗ 12).
             builder.HasIndex(x => x.TelegramId).IsUnique().HasFilter("telegram_id IS NOT NULL");

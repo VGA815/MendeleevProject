@@ -10,7 +10,7 @@
 {
     <nav class="subnav" aria-label="Кабинет">
         <a href="/cabinet" aria-current="@Current("/cabinet")">Подписка</a>
-        <a href="/cabinet/pay" aria-current="@Current("/cabinet/pay")">Оплата</a>
+        <a href="/cabinet/pay" aria-current="@(Current("/cabinet/pay") ?? Current("/cabinet/promo"))">Оплата</a>
         <a href="/cabinet/instructions" aria-current="@Current("/cabinet/instructions")">Инструкции</a>
         <a href="/cabinet/devices" aria-current="@Current("/cabinet/devices")">Устройства</a>
         @if (!account.HasTelegram)

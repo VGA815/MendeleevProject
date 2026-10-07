@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -5,17 +6,22 @@ using Mendeleev.Application.Abstractions.Delivery;
 using Mendeleev.Application.Abstractions.Messaging;
 using Mendeleev.Application.Admin.Audit;
 using Mendeleev.Application.Admin.Broadcasts;
+using Mendeleev.Application.Admin.Promos;
 using Mendeleev.Application.Admin.Staff;
 using Mendeleev.Application.Admin.Stats;
 using Mendeleev.Application.Admin.Tariffs;
 using Mendeleev.Application.Admin.Users;
+using Mendeleev.Application.Configuration;
 using Mendeleev.Domain.Broadcasts;
+using Mendeleev.Domain.Common;
 using Mendeleev.Domain.Payments;
+using Mendeleev.Domain.Promos;
 using Mendeleev.Domain.Staff;
 using Mendeleev.Domain.Tariffs;
 using Mendeleev.SharedKernel;
 using Mendeleev.Web.Bot.Content;
 using Mendeleev.Web.Bot.Infrastructure;
+using Microsoft.Extensions.Options;
 using Telegram.Bot.Types.ReplyMarkups;
 
 namespace Mendeleev.Web.Bot.Handlers
@@ -49,8 +55,20 @@ namespace Mendeleev.Web.Bot.Handlers
         ICommandHandler<ChangeStaffRoleCommand> changeRole,
         ICommandHandler<SetStaffActiveCommand> setActive,
         IQueryHandler<GetAuditQuery, IReadOnlyList<AuditEntryView>> getAudit,
-        IQueryHandler<ListTariffsQuery, IReadOnlyList<TariffAdminView>> listTariffs)
+        IQueryHandler<ListTariffsQuery, IReadOnlyList<TariffAdminView>> listTariffs,
+        ICommandHandler<CreatePromoCodeCommand, PromoCodeView> createPromo,
+        ICommandHandler<DeactivatePromoCodeCommand> deactivatePromo,
+        IQueryHandler<ListPromoCodesQuery, IReadOnlyList<PromoCodeView>> listPromos,
+        IQueryHandler<GetPromoCodeQuery, PromoCodeDetails> getPromo,
+        IOptions<ServiceOptions> serviceOptions)
     {
+        private const string PromoUsage =
+            "<code>/promos new КОД 20%</code> — скидка на оплату, от 1 до 99 %\n" +
+            "<code>/promos new КОД 7д</code> — бонусные дни, от 1 до 365\n" +
+            "После значения можно добавить лимит использований и даты: <code>/promos new AUTUMN 20% 100 31.10.2026</code> — 100 раз до 31.10 включительно; две даты — с и по.\n" +
+            "<code>/promos КОД</code> — статистика, <code>/promos off КОД</code> — выключить.\n" +
+            "Код — латиница, цифры, «_» и «-», от 3 до 32 символов.";
+
         private const string IncidentTemplate = "Часть серверов недоступна. Обновите подписку в приложении.";
 
         private const string ManualPaymentHint = "Сумма целым числом в рублях и комментарий, как и когда получены деньги, одним сообщением: <code>300 перевод на карту 05.10</code>. Или /cancel.";
@@ -614,6 +632,226 @@ namespace Mendeleev.Web.Bot.Handlers
             await responder.SendAsync(context.ChatId, text.ToString(), null, cancellationToken);
         }
 
+        // ── Промокоды ────────────────────────────────────────────────────────────────────────────
+
+        /// <summary><c>/promos</c>: list, <c>new</c>, <c>off</c>, or the statistics of one code (FR-ADM-15).</summary>
+        public async Task PromosAsync(BotContext context, string arguments, CancellationToken cancellationToken)
+        {
+            long actor = context.Staff!.StaffId;
+            string[] parts = arguments.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            switch (parts)
+            {
+                case []:
+                    await ListPromosAsync(context, cancellationToken);
+                    return;
+
+                case ["new", .. var spec]:
+                    if (!TryParsePromo(spec, out PromoDraft? draft, out string problem))
+                    {
+                        await responder.SendAsync(context.ChatId, $"{TextRenderer.Encode(problem)}\n\n{PromoUsage}", null, cancellationToken);
+                        return;
+                    }
+
+                    Result<PromoCodeView> created = await createPromo.Handle(
+                        new CreatePromoCodeCommand(actor, draft.Code, draft.Type, draft.Value, draft.MaxUses, draft.ValidFrom, draft.ValidTo),
+                        cancellationToken);
+                    await responder.SendAsync(
+                        context.ChatId,
+                        created.IsSuccess
+                            ? $"Промокод создан:\n{PromoLine(created.Value)}\n\n{PromoLink(created.Value.Code)}"
+                            : TextRenderer.Encode(created.Error.Description),
+                        null,
+                        cancellationToken);
+                    return;
+
+                case ["off", var code]:
+                    await PromoOffAsync(context, code, cancellationToken);
+                    return;
+
+                case [var code]:
+                    await PromoDetailsAsync(context, code, cancellationToken);
+                    return;
+
+                default:
+                    await responder.SendAsync(context.ChatId, "Не понял команду.\n\n" + PromoUsage, null, cancellationToken);
+                    return;
+            }
+        }
+
+        public Task PromoOffAskAsync(BotContext context, string code, CancellationToken cancellationToken) =>
+            responder.ShowAsync(
+                context,
+                $"Выключить промокод {TextRenderer.Encode(code)}? Включить его снова нельзя — только создать новый. Уже созданные платежи со скидкой можно будет оплатить.",
+                Keyboards.Of([Keyboards.Callback("Выключить", $"pr:off!:{code}")], [Keyboards.Callback("« Промокоды", "pr:list")]),
+                cancellationToken);
+
+        public async Task PromoOffAsync(BotContext context, string code, CancellationToken cancellationToken)
+        {
+            Result result = await deactivatePromo.Handle(new DeactivatePromoCodeCommand(context.Staff!.StaffId, code), cancellationToken);
+            await responder.SendAsync(
+                context.ChatId,
+                result.IsSuccess ? $"Промокод {TextRenderer.Encode(code.ToUpperInvariant())} выключен." : TextRenderer.Encode(result.Error.Description),
+                null,
+                cancellationToken);
+        }
+
+        public async Task ListPromosAsync(BotContext context, CancellationToken cancellationToken)
+        {
+            Result<IReadOnlyList<PromoCodeView>> result = await listPromos.Handle(new ListPromoCodesQuery(context.Staff!.StaffId), cancellationToken);
+            if (result.IsFailure)
+            {
+                await responder.SendAsync(context.ChatId, TextRenderer.Encode(result.Error.Description), null, cancellationToken);
+                return;
+            }
+
+            var text = new StringBuilder("<b>Промокоды</b>\n");
+            if (result.Value.Count == 0)
+            {
+                text.Append("Пока нет.\n");
+            }
+            foreach (PromoCodeView promo in result.Value)
+            {
+                text.Append(PromoLine(promo)).Append('\n');
+            }
+            text.Append('\n').Append(PromoUsage);
+
+            await responder.ShowAsync(context, text.ToString(), null, cancellationToken);
+        }
+
+        public async Task PromoDetailsAsync(BotContext context, string code, CancellationToken cancellationToken)
+        {
+            Result<PromoCodeDetails> result = await getPromo.Handle(new GetPromoCodeQuery(context.Staff!.StaffId, code), cancellationToken);
+            if (result.IsFailure)
+            {
+                await responder.SendAsync(context.ChatId, TextRenderer.Encode(result.Error.Description), null, cancellationToken);
+                return;
+            }
+
+            PromoCodeDetails details = result.Value;
+            PromoCodeView promo = details.Promo;
+            var text = new StringBuilder($"<b>Промокод {promo.Code}</b>\n{PromoLine(promo)}\n\n");
+            if (promo.Type == PromoType.DiscountPercent)
+            {
+                text.Append(CultureInfo.InvariantCulture, $"Оплачено со скидкой: {details.PaidPayments} на {TextRenderer.Encode(details.PaidSum)} ₽\n");
+                text.Append(CultureInfo.InvariantCulture, $"Ввели и ещё не оплатили: {details.WaitingUsers}\n");
+            }
+            else
+            {
+                text.Append(CultureInfo.InvariantCulture, $"Выдано бонусных дней: {details.BonusDaysGiven}\n");
+            }
+
+            if (details.LastUses.Count > 0)
+            {
+                text.Append("\nПоследние использования:\n");
+                foreach (PromoUseView use in details.LastUses)
+                {
+                    string what = use.Amount is decimal amount ? $"{TextRenderer.Encode(amount)} ₽" : $"+{use.BonusDays} дн.";
+                    text.Append(CultureInfo.InvariantCulture, $"• {TextRenderer.FormatDate(use.At)} u{use.UserId} — {what}\n");
+                }
+            }
+            text.Append('\n').Append(PromoLink(promo.Code));
+
+            await responder.ShowAsync(
+                context,
+                text.ToString(),
+                promo.IsActive ? Keyboards.Of([Keyboards.Callback("Выключить", $"pr:off:{promo.Code}")]) : null,
+                cancellationToken);
+        }
+
+        /// <summary><c>AUTUMN 20% 100 31.10.2026</c>: code, value, then optionally a use limit and one or two dates.</summary>
+        internal static bool TryParsePromo(string[] spec, [NotNullWhen(true)] out PromoDraft? draft, out string problem)
+        {
+            draft = null;
+            problem = string.Empty;
+            if (spec.Length < 2)
+            {
+                problem = "Укажите код и значение.";
+                return false;
+            }
+
+            string code = spec[0];
+            string value = spec[1].ToLowerInvariant().TrimStart('+');
+            PromoType type;
+            int amount;
+            if (value.EndsWith('%') && int.TryParse(value.AsSpan(0, value.Length - 1), NumberStyles.None, CultureInfo.InvariantCulture, out amount))
+            {
+                type = PromoType.DiscountPercent;
+            }
+            else if (TryParseDays(value, out amount))
+            {
+                type = PromoType.BonusDays;
+            }
+            else
+            {
+                problem = $"Не понял значение «{spec[1]}»: нужно «20%» или «7д».";
+                return false;
+            }
+
+            int? maxUses = null;
+            var dates = new List<DateOnly>();
+            foreach (string token in spec[2..])
+            {
+                if (int.TryParse(token, NumberStyles.None, CultureInfo.InvariantCulture, out int limit) && maxUses is null)
+                {
+                    maxUses = limit;
+                }
+                else if (DateOnly.TryParseExact(token, "dd.MM.yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly day) && dates.Count < 2)
+                {
+                    dates.Add(day);
+                }
+                else
+                {
+                    problem = $"Не понял «{token}»: после значения — лимит (число) и даты ДД.ММ.ГГГГ.";
+                    return false;
+                }
+            }
+
+            dates.Sort();
+            // Moscow days, both inclusive: «до 31.10.2026» works through the end of the 31st.
+            DateTime? validFrom = dates.Count == 2 ? MoscowTime.StartOfDayUtc(dates[0]) : null;
+            DateTime? validTo = dates.Count > 0 ? MoscowTime.StartOfDayUtc(dates[^1].AddDays(1)) : null;
+
+            draft = new PromoDraft(code, type, amount, maxUses, validFrom, validTo);
+            return true;
+        }
+
+        private static bool TryParseDays(string value, out int days)
+        {
+            foreach (string suffix in new[] { "дней", "дн", "д", "days", "d" })
+            {
+                if (value.EndsWith(suffix, StringComparison.Ordinal)
+                    && int.TryParse(value.AsSpan(0, value.Length - suffix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out days))
+                {
+                    return true;
+                }
+            }
+
+            days = 0;
+            return false;
+        }
+
+        private static string PromoLine(PromoCodeView promo)
+        {
+            string value = promo.Type == PromoType.DiscountPercent ? $"−{promo.Value} %" : $"+{promo.Value} дн.";
+            string uses = promo.MaxUses is int max ? $"{promo.UsedCount} из {max}" : $"{promo.UsedCount} исп.";
+            string window = (promo.ValidFrom, promo.ValidTo) switch
+            {
+                (DateTime from, DateTime to) => $"{Day(from)}–{Day(to.AddTicks(-1))}",
+                (null, DateTime to) => $"до {Day(to.AddTicks(-1))}",
+                (DateTime from, null) => $"с {Day(from)}",
+                _ => "без срока",
+            };
+            return $"<code>{promo.Code}</code> {value} · {uses} · {window}{(promo.IsActive ? string.Empty : " · выключен")}";
+        }
+
+        private static string Day(DateTime utc) => MoscowTime.FromUtc(utc).ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
+
+        private string PromoLink(string code) =>
+            string.IsNullOrEmpty(serviceOptions.Value.BotUrl)
+                ? $"Ссылка для поста: <code>/start {UserHandler.PromoStartPrefix}{code}</code> (имя бота не задано в Service:BotUsername)"
+                : $"Ссылка для поста: {serviceOptions.Value.BotUrl}?start={UserHandler.PromoStartPrefix}{code}";
+
         private async Task<Result> AddAsync(long actor, long telegramId, StaffRole role, string name, CancellationToken cancellationToken)
         {
             Result<long> added = await addStaff.Handle(new AddStaffCommand(actor, telegramId, role, name), cancellationToken);
@@ -650,4 +888,7 @@ namespace Mendeleev.Web.Bot.Handlers
 
         private static string YesNo(bool value) => value ? "да" : "нет";
     }
+
+    /// <summary>A parsed <c>/promos new</c>; the Application layer validates the values.</summary>
+    internal sealed record PromoDraft(string Code, PromoType Type, int Value, int? MaxUses, DateTime? ValidFrom, DateTime? ValidTo);
 }

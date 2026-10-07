@@ -73,6 +73,7 @@ namespace Mendeleev.Web.Bot
             if (command == "/cancel")
             {
                 conversations.Clear(context.ChatId);
+                conversations.ClearPromoPrompt(context.ChatId);
                 await user.MenuAsync(context, cancellationToken);
                 return;
             }
@@ -93,10 +94,23 @@ namespace Mendeleev.Web.Bot
                 return;
             }
 
+            // «Ввести промокод» was pressed: this message is the code. Any command cancels the wait.
+            if (conversations.TakePromoPrompt(context.ChatId) && command.Length == 0)
+            {
+                await user.ApplyPromoAsync(context, text, cancellationToken);
+                return;
+            }
+
             switch (command)
             {
                 case "/start":
-                    await user.StartAsync(context, cancellationToken);
+                    await user.StartAsync(context, arguments, cancellationToken);
+                    break;
+                case "/promo" when arguments.Length > 0:
+                    await user.ApplyPromoAsync(context, arguments, cancellationToken);
+                    break;
+                case "/promo":
+                    await user.PromoAskAsync(context, cancellationToken);
                     break;
                 case "/sub":
                     await user.SubscriptionAsync(context, cancellationToken);
@@ -145,6 +159,9 @@ namespace Mendeleev.Web.Bot
                 case "/tariffs" when member.Can(StaffPermission.ViewTariffs):
                     await staff.TariffsAsync(context, cancellationToken);
                     return true;
+                case "/promos" when member.Can(StaffPermission.ManagePromos):
+                    await staff.PromosAsync(context, arguments, cancellationToken);
+                    return true;
                 default:
                     return false;
             }
@@ -174,7 +191,8 @@ namespace Mendeleev.Web.Bot
 
             string data = callback.Data!;
 
-            if (data.StartsWith("s:", StringComparison.Ordinal) || data.StartsWith("bc:", StringComparison.Ordinal) || data.StartsWith("st:", StringComparison.Ordinal))
+            if (data.StartsWith("s:", StringComparison.Ordinal) || data.StartsWith("bc:", StringComparison.Ordinal)
+                || data.StartsWith("st:", StringComparison.Ordinal) || data.StartsWith("pr:", StringComparison.Ordinal))
             {
                 if (context.Staff is not null)
                 {
@@ -229,6 +247,9 @@ namespace Mendeleev.Web.Bot
                     break;
                 case Cb.Qr:
                     await user.QrAsync(context, cancellationToken);
+                    break;
+                case Cb.Promo:
+                    await user.PromoAskAsync(context, cancellationToken);
                     break;
                 case var d when d.StartsWith(Cb.Tariff, StringComparison.Ordinal):
                     await user.ConfirmTariffAsync(context, d[Cb.Tariff.Length..], cancellationToken);
@@ -318,6 +339,15 @@ namespace Mendeleev.Web.Bot
                     break;
                 case ["st", var period] when Enum.TryParse(period, out StatsPeriod p):
                     await staff.StatsAsync(context, p, cancellationToken);
+                    break;
+                case ["pr", "list"]:
+                    await staff.ListPromosAsync(context, cancellationToken);
+                    break;
+                case ["pr", "off", var code]:
+                    await staff.PromoOffAskAsync(context, code, cancellationToken);
+                    break;
+                case ["pr", "off!", var code]:
+                    await staff.PromoOffAsync(context, code, cancellationToken);
                     break;
                 default:
                     logger.LogDebug("Unknown staff callback");

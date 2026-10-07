@@ -4,6 +4,7 @@ using Mendeleev.Application.Abstractions.Data;
 using Mendeleev.Application.Abstractions.Observability;
 using Mendeleev.Domain.Audit;
 using Mendeleev.Domain.Payments;
+using Mendeleev.Domain.Promos;
 using Mendeleev.Domain.Subscriptions;
 using Mendeleev.Domain.Tariffs;
 using Mendeleev.Domain.Users;
@@ -114,6 +115,11 @@ namespace Mendeleev.Application.Payments
                 subscription.ApplyPayment(tariff, payment.DaysGranted, payment.Id, now);
             }
 
+            if (payment.PromoCodeId is long promoCodeId)
+            {
+                await RedeemPromoAsync(promoCodeId, user, payment, now, cancellationToken);
+            }
+
             if (user.IsBlocked)
             {
                 // The payment counts, the subscription stays disabled; the admin decides on a refund (ТЗ 22).
@@ -142,6 +148,23 @@ namespace Mendeleev.Application.Payments
             }
 
             return ApplyOutcome.Applied;
+        }
+
+        /// <summary>
+        /// The discount counts once the payment succeeds (ТЗ 22, «Промокоды»), once per user: a second discounted
+        /// payment of the same user (started before the first one was paid) is applied all the same — the user paid
+        /// the price shown — but uses nothing more. Locks: payment → user → promo code.
+        /// </summary>
+        private async Task RedeemPromoAsync(long promoCodeId, User user, Payment payment, DateTime now, CancellationToken cancellationToken)
+        {
+            if (!await db.PromoRedemptions.AnyAsync(r => r.PromoCodeId == promoCodeId && r.UserId == user.Id, cancellationToken))
+            {
+                PromoCode? promo = await db.LockPromoCodeAsync(promoCodeId, cancellationToken);
+                promo?.RegisterUse(now);
+                db.PromoRedemptions.Add(PromoRedemption.ForPayment(promoCodeId, user.Id, payment.Id, now));
+            }
+
+            user.ClearSelectedPromo(promoCodeId, now);
         }
     }
 }

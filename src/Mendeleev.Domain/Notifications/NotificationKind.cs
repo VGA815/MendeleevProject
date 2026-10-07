@@ -16,5 +16,8 @@ namespace Mendeleev.Domain.Notifications
 
         /// <summary>Paid, but the panel is unreachable: access follows once the sync gets through (ТЗ 23).</summary>
         AccessPending = 10,
+
+        /// <summary>Bonus days of a promo code reached the panel (FR-SUB-15).</summary>
+        PromoBonus = 11,
     }
 }

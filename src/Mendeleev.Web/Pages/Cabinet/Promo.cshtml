@@ -1,0 +1,33 @@
+@page "/cabinet/promo"
+@model Mendeleev.Web.Pages.Cabinet.PromoModel
+@using Mendeleev.Web.Bot.Content
+@{
+    ViewData["Title"] = "Промокод";
+}
+<h1>Промокод</h1>
+@if (Model.Bonus is { } bonus)
+{
+    <div class="notice ok">
+        <p>Промокод <b>@bonus.Code</b> применён: +@bonus.Value дн.</p>
+        @if (bonus.ExpiresAt is DateTime expiresAt)
+        {
+            <p>Подписка действует до @TextRenderer.FormatDate(expiresAt) (МСК). Доступ обновится в течение минуты.</p>
+        }
+    </div>
+    <p><a href="/cabinet">В кабинет</a></p>
+}
+else
+{
+    @if (Model.Error is string error)
+    {
+        <div class="notice error">@error</div>
+    }
+    <form method="post" class="panel promo-form">
+        <label for="promo-code">Промокод</label>
+        <div class="promo-row">
+            <input id="promo-code" name="code" type="text" value="@Model.Code" maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false" required autofocus />
+            <button type="submit" class="button">Применить</button>
+        </div>
+    </form>
+    <p><a href="/cabinet/pay">К тарифам</a></p>
+}

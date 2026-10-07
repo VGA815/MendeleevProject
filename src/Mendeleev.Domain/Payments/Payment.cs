@@ -36,6 +36,9 @@ namespace Mendeleev.Domain.Payments
 
         public int DaysGranted { get; private set; }
 
+        /// <summary>The discount code the amount was reduced by (FR-PAY-15); it counts once the payment succeeds.</summary>
+        public long? PromoCodeId { get; private set; }
+
         public string? ConfirmationUrl { get; private set; }
 
         /// <summary>When the aggregator's payment page stops accepting the payment, if it says so.</summary>
@@ -56,11 +59,25 @@ namespace Mendeleev.Domain.Payments
 
         public bool IsFinal => Status is PaymentStatus.Succeeded or PaymentStatus.Refunded;
 
-        public static Payment Create(long userId, Tariff tariff, string provider, DateTime utcNow)
+        /// <summary>
+        /// A payment for the tariff at its current price, or at <paramref name="discountedAmount"/> when a promo
+        /// code reduces it (ТЗ 23: the price at creation minus the promo discount, above zero).
+        /// </summary>
+        public static Payment Create(
+            long userId,
+            Tariff tariff,
+            string provider,
+            DateTime utcNow,
+            long? promoCodeId = null,
+            decimal? discountedAmount = null)
         {
             if (!tariff.IsPurchasable)
             {
                 throw new InvalidOperationException($"Tariff '{tariff.Code}' cannot be bought.");
+            }
+            if (discountedAmount is decimal reduced && (reduced <= 0 || reduced > tariff.Price || promoCodeId is null))
+            {
+                throw new ArgumentOutOfRangeException(nameof(discountedAmount), "A discount comes with a promo code and keeps the amount within (0, price].");
             }
 
             return new Payment
@@ -68,11 +85,12 @@ namespace Mendeleev.Domain.Payments
                 Id = Guid.CreateVersion7(),
                 UserId = userId,
                 TariffId = tariff.Id,
-                Amount = tariff.Price,
+                Amount = discountedAmount ?? tariff.Price,
                 Currency = Rub,
                 Provider = provider,
                 Status = PaymentStatus.Created,
                 DaysGranted = tariff.PeriodDays,
+                PromoCodeId = promoCodeId,
                 CreatedAt = utcNow,
                 UpdatedAt = utcNow,
             };
@@ -191,10 +209,11 @@ namespace Mendeleev.Domain.Payments
 
         /// <summary>
         /// An unpaid, unexpired payment for the same tariff is shown again instead of creating a new one
-        /// (FR-PAY-10).
+        /// (FR-PAY-10) — if it was made with the same promo code: a code entered later gets its own payment.
         /// </summary>
-        public bool IsReusable(int tariffId, TimeSpan maxAge, DateTime utcNow) =>
+        public bool IsReusable(int tariffId, long? promoCodeId, TimeSpan maxAge, DateTime utcNow) =>
             TariffId == tariffId
+            && PromoCodeId == promoCodeId
             && Status == PaymentStatus.Pending
             && ConfirmationUrl is not null
             && CreatedAt > utcNow - maxAge

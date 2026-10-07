@@ -28,6 +28,12 @@ namespace Mendeleev.Application.Configuration
         /// <summary>Support compensation limit per user within 30 days.</summary>
         public int SupportCompensationPer30Days { get; init; } = 14;
 
+        /// <summary>
+        /// The tariff that bonus days of a promo code are days of, for a user without a subscription or on the
+        /// trial (ТЗ 22: «создаётся active на Базовом тарифе»). It may be switched off for sale.
+        /// </summary>
+        public string PromoBonusTariffCode { get; init; } = "basic_1m";
+
         public bool IsQuietHour(int moscowHour) =>
             QuietHoursStartHour > QuietHoursEndHour
                 ? moscowHour >= QuietHoursStartHour || moscowHour < QuietHoursEndHour

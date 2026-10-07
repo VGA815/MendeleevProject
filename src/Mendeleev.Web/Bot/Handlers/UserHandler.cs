@@ -6,13 +6,15 @@ using Mendeleev.Application.Devices.GetDevices;
 using Mendeleev.Application.Devices.ResetDevices;
 using Mendeleev.Application.Payments.Check;
 using Mendeleev.Application.Payments.Create;
+using Mendeleev.Application.Promos;
 using Mendeleev.Application.Subscriptions.GetSubscription;
 using Mendeleev.Application.Subscriptions.Trial;
-using Mendeleev.Application.Tariffs.GetPurchasableTariffs;
 using Mendeleev.Domain.Payments;
+using Mendeleev.Domain.Promos;
 using Mendeleev.Domain.Subscriptions;
 using Mendeleev.SharedKernel;
 using Mendeleev.Web.Bot.Content;
+using Mendeleev.Web.Bot.Infrastructure;
 using Mendeleev.Web.Infrastructure;
 using Microsoft.Extensions.Options;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -25,23 +27,41 @@ namespace Mendeleev.Web.Bot.Handlers
         IOptionsMonitor<BotContent> contentMonitor,
         IOptions<ServiceOptions> serviceOptions,
         IQueryHandler<GetSubscriptionQuery, SubscriptionView> getSubscription,
-        IQueryHandler<GetPurchasableTariffsQuery, IReadOnlyList<TariffView>> getTariffs,
+        IQueryHandler<GetOfferQuery, Offer> getOffer,
         ICommandHandler<StartTrialCommand> startTrial,
         ICommandHandler<CreatePaymentCommand, PaymentLink> createPayment,
+        ICommandHandler<ApplyPromoCodeCommand, PromoApplied> applyPromo,
         ICommandHandler<CheckPaymentCommand, PaymentCheckResult> checkPayment,
         IQueryHandler<GetDevicesQuery, DevicesView> getDevices,
         ICommandHandler<ResetDevicesCommand, DevicesResetResult> resetDevices,
         ICommandHandler<IssueAccountKeyCommand, string> issueKey,
-        ICommandHandler<IssueLinkCodeCommand, IssuedLinkCode> issueLinkCode)
+        ICommandHandler<IssueLinkCodeCommand, IssuedLinkCode> issueLinkCode,
+        ConversationStore conversations)
     {
+        /// <summary><c>t.me/&lt;бот&gt;?start=promo_&lt;код&gt;</c> (FR-BOT-20); <c>ref_</c> comes with stage 2.</summary>
+        internal const string PromoStartPrefix = "promo_";
+
         private BotContent C => contentMonitor.CurrentValue;
 
-        public async Task StartAsync(BotContext context, CancellationToken cancellationToken)
+        public async Task StartAsync(BotContext context, string arguments, CancellationToken cancellationToken)
         {
+            bool withPromo = arguments.StartsWith(PromoStartPrefix, StringComparison.OrdinalIgnoreCase);
+            if (withPromo && !context.User.IsNew)
+            {
+                await ApplyPromoAsync(context, arguments[PromoStartPrefix.Length..], cancellationToken);
+                return;
+            }
+
             string text = context.User.IsNew
                 ? TextRenderer.Render(C.Text("Welcome"), ("service", serviceOptions.Value.Name))
                 : C.Text("Menu");
-            await responder.SendAsync(context.ChatId, text, Keyboards.MainMenu(C, context.User.TrialAvailable), cancellationToken);
+
+            // With a code the greeting goes without the menu: what the code gives comes next, with its own buttons.
+            await responder.SendAsync(context.ChatId, text, withPromo ? null : Keyboards.MainMenu(C, context.User.TrialAvailable), cancellationToken);
+            if (withPromo)
+            {
+                await ApplyPromoAsync(context, arguments[PromoStartPrefix.Length..], cancellationToken);
+            }
         }
 
         public Task MenuAsync(BotContext context, CancellationToken cancellationToken) =>
@@ -102,44 +122,65 @@ namespace Mendeleev.Web.Bot.Handlers
             await responder.ShowAsync(context, string.Join("\n\n", text), Keyboards.Of(rows), cancellationToken);
         }
 
-        public async Task TariffsAsync(BotContext context, CancellationToken cancellationToken)
+        /// <param name="lead">Replaces the usual header, e.g. «промокод принят».</param>
+        public async Task TariffsAsync(BotContext context, CancellationToken cancellationToken, string? lead = null)
         {
-            IReadOnlyList<TariffView> tariffs = (await getTariffs.Handle(new GetPurchasableTariffsQuery(), cancellationToken)).Value;
-            if (tariffs.Count == 0)
+            Offer offer = (await getOffer.Handle(new GetOfferQuery(context.UserId), cancellationToken)).Value;
+            if (offer.Tariffs.Count == 0)
             {
                 await responder.ShowAsync(context, C.Text("TariffsEmpty"), Keyboards.Of(Keyboards.Support(C), Keyboards.BackToMenu(C)), cancellationToken);
                 return;
             }
 
-            IEnumerable<InlineKeyboardButton[]> rows = tariffs.Select(t =>
+            IEnumerable<InlineKeyboardButton[]> rows = offer.Tariffs.Select(t =>
             {
-                string label = $"{t.Name} — {TextRenderer.Encode(t.Price)} ₽";
-                if (t.PeriodDays > 31)
+                string label = $"{t.Tariff.Name} — {TextRenderer.Encode(t.FinalPrice)} ₽";
+                if (t.Discounted)
+                {
+                    label += $" вместо {TextRenderer.Encode(t.Tariff.Price)}";
+                }
+                else if (t.Tariff.PeriodDays > 31)
                 {
                     label += $" (≈ {TextRenderer.Encode(t.MonthlyEquivalent)} ₽/мес)";
                 }
-                return new[] { Keyboards.Callback(label, Cb.Tariff + t.Code) };
+                return new[] { Keyboards.Callback(label, Cb.Tariff + t.Tariff.Code) };
             });
 
-            await responder.ShowAsync(context, C.Text("TariffsHeader"), Keyboards.Of(rows.Append(Keyboards.BackToMenu(C))), cancellationToken);
+            string text = lead ?? C.Text("TariffsHeader");
+            if (lead is null && offer.Promo is OfferPromo promo)
+            {
+                text += "\n\n" + TextRenderer.Render(C.Text("TariffsPromo"), ("code", promo.Code), ("percent", promo.DiscountPercent));
+            }
+
+            await responder.ShowAsync(
+                context,
+                text,
+                Keyboards.Of(rows
+                    .Append([Keyboards.Callback(C.Button("Promo"), Cb.Promo)])
+                    .Append(Keyboards.BackToMenu(C))),
+                cancellationToken);
         }
 
         public async Task ConfirmTariffAsync(BotContext context, string code, CancellationToken cancellationToken)
         {
-            IReadOnlyList<TariffView> tariffs = (await getTariffs.Handle(new GetPurchasableTariffsQuery(), cancellationToken)).Value;
-            TariffView? tariff = tariffs.FirstOrDefault(t => t.Code == code);
-            if (tariff is null)
+            Offer offer = (await getOffer.Handle(new GetOfferQuery(context.UserId), cancellationToken)).Value;
+            if (offer.Find(code) is not OfferedTariff tariff)
             {
                 await TariffsAsync(context, cancellationToken);
                 return;
             }
 
-            string text = TextRenderer.Render(C.Text("PaymentConfirm"), ("tariff", tariff.Name), ("amount", tariff.Price), ("days", tariff.PeriodDays));
+            string text = TextRenderer.Render(C.Text("PaymentConfirm"), ("tariff", tariff.Tariff.Name), ("amount", tariff.FinalPrice), ("days", tariff.Tariff.PeriodDays));
+            if (tariff.Discounted && offer.Promo is OfferPromo promo)
+            {
+                text += "\n\n" + TextRenderer.Render(C.Text("PaymentDiscount"), ("code", promo.Code), ("full", tariff.Tariff.Price), ("amount", tariff.FinalPrice));
+            }
+
             await responder.ShowAsync(
                 context,
                 text,
                 Keyboards.Of(
-                    [Keyboards.Callback(C.Button("Pay"), Cb.Pay + tariff.Code)],
+                    [Keyboards.Callback(C.Button("Pay"), Cb.Pay + tariff.Tariff.Code)],
                     [Keyboards.Callback(C.Button("Back"), Cb.Buy)]),
                 cancellationToken);
         }
@@ -155,12 +196,58 @@ namespace Mendeleev.Web.Bot.Handlers
 
             PaymentLink link = result.Value;
             string text = TextRenderer.Render(C.Text("PaymentConfirm"), ("tariff", link.TariffName), ("amount", link.Amount), ("days", link.Days));
+            if (link is { PromoCode: string promoCode, FullPrice: decimal full } && full > link.Amount)
+            {
+                text += "\n\n" + TextRenderer.Render(C.Text("PaymentDiscount"), ("code", promoCode), ("full", full), ("amount", link.Amount));
+            }
+            if (link.DroppedPromoCode is string dropped)
+            {
+                text += "\n\n" + TextRenderer.Render(C.Text("PaymentPromoDropped"), ("code", dropped));
+            }
             if (link.Reused)
             {
                 text += "\n\n" + C.Text("PaymentReused");
             }
 
             await responder.ShowAsync(context, text, PaymentKeyboard(link.ConfirmationUrl, link.PaymentId), cancellationToken);
+        }
+
+        /// <summary>«Ввести промокод»: the next plain message of the user is taken as the code (FR-SUB-15).</summary>
+        public Task PromoAskAsync(BotContext context, CancellationToken cancellationToken)
+        {
+            conversations.SetPromoPrompt(context.ChatId);
+            return responder.ShowAsync(context, C.Text("PromoAsk"), Keyboards.Of([Keyboards.Callback(C.Button("Back"), Cb.Buy)]), cancellationToken);
+        }
+
+        /// <summary>
+        /// A discount shows the tariffs at once with the new prices; bonus days are added at once, and the date comes
+        /// with the confirmation once the panel has the new term.
+        /// </summary>
+        public async Task ApplyPromoAsync(BotContext context, string code, CancellationToken cancellationToken)
+        {
+            Result<PromoApplied> result = await applyPromo.Handle(new ApplyPromoCodeCommand(context.UserId, code), cancellationToken);
+            if (result.IsFailure)
+            {
+                await responder.ShowAsync(
+                    context,
+                    TextRenderer.Encode(result.Error.Description),
+                    Keyboards.Of([Keyboards.Callback(C.Button("Promo"), Cb.Promo)], [Keyboards.Callback(C.Button("Buy"), Cb.Buy)], Keyboards.BackToMenu(C)),
+                    cancellationToken);
+                return;
+            }
+
+            PromoApplied applied = result.Value;
+            if (applied.Type == PromoType.DiscountPercent)
+            {
+                await TariffsAsync(context, cancellationToken, TextRenderer.Render(C.Text("PromoDiscountApplied"), ("code", applied.Code), ("percent", applied.Value)));
+                return;
+            }
+
+            await responder.ShowAsync(
+                context,
+                TextRenderer.Render(C.Text("PromoBonusApplied"), ("code", applied.Code), ("days", applied.Value)),
+                Keyboards.Of([Keyboards.Callback(C.Button("MySubscription"), Cb.Subscription)], Keyboards.BackToMenu(C)),
+                cancellationToken);
         }
 
         public async Task CheckPaymentAsync(BotContext context, Guid paymentId, CancellationToken cancellationToken)

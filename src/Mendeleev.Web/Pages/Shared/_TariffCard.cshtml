@@ -14,8 +14,12 @@
         <dd>@(tariff.TrafficLimitBytes is long bytes ? TextRenderer.FormatBytes(bytes) : "без ограничений")</dd>
     </dl>
     <p class="tariff-price">
-        @tariff.Price.ToString("N0", ru) ₽
-        @if (Model.CanPay && tariff.PeriodDays > 31)
+        @((Model.Discounted ? Model.FinalPrice!.Value : tariff.Price).ToString("N0", ru)) ₽
+        @if (Model.Discounted)
+        {
+            <span class="muted"><s>@tariff.Price.ToString("N0", ru) ₽</s> со скидкой по промокоду</span>
+        }
+        else if (Model.CanPay && tariff.PeriodDays > 31)
         {
             <span class="muted">≈ @tariff.MonthlyEquivalent.ToString("N0", ru) ₽/мес</span>
         }

@@ -1,3 +1,5 @@
+using Mendeleev.Domain.Common;
+using Mendeleev.Domain.Promos;
 using Mendeleev.SharedKernel;
 using Mendeleev.Web.Bot;
 using Mendeleev.Web.Bot.Content;
@@ -35,6 +37,40 @@ namespace Mendeleev.UnitTests.Web
             rubles.ShouldBe(amount);
             rest.ShouldBe(comment);
         }
+
+        [Theory]
+        [InlineData("AUTUMN 20%", "AUTUMN", PromoType.DiscountPercent, 20, null, null, null)]
+        [InlineData("gift 7д", "gift", PromoType.BonusDays, 7, null, null, null)]
+        [InlineData("GIFT +14дн 50", "GIFT", PromoType.BonusDays, 14, 50, null, null)]
+        [InlineData("GIFT 3d 31.10.2026", "GIFT", PromoType.BonusDays, 3, null, null, "01.11.2026")]
+        [InlineData("SALE 15% 100 31.10.2026 10.10.2026", "SALE", PromoType.DiscountPercent, 15, 100, "10.10.2026", "01.11.2026")]
+        public void Promos_New_CodeValueThenLimitAndDates(string spec, string code, PromoType type, int value, int? maxUses, string? from, string? to)
+        {
+            StaffHandler.TryParsePromo(spec.Split(' '), out PromoDraft? draft, out string problem).ShouldBeTrue(problem);
+
+            draft!.Code.ShouldBe(code);
+            draft.Type.ShouldBe(type);
+            draft.Value.ShouldBe(value);
+            draft.MaxUses.ShouldBe(maxUses);
+            // Moscow dates: «до 31.10» runs through the 31st, so the end is midnight of 01.11 in Moscow.
+            draft.ValidFrom.ShouldBe(from is null ? null : MoscowMidnight(from));
+            draft.ValidTo.ShouldBe(to is null ? null : MoscowMidnight(to));
+        }
+
+        [Theory]
+        [InlineData("AUTUMN")]
+        [InlineData("AUTUMN 20")]
+        [InlineData("AUTUMN 20% 1 2")]
+        [InlineData("AUTUMN 20% завтра")]
+        [InlineData("AUTUMN 7 дней")]
+        public void Promos_New_RefusesWhatItCannotRead(string spec)
+        {
+            StaffHandler.TryParsePromo(spec.Split(' '), out _, out string problem).ShouldBeFalse();
+            problem.ShouldNotBeEmpty();
+        }
+
+        private static DateTime MoscowMidnight(string date) =>
+            MoscowTime.StartOfDayUtc(DateOnly.ParseExact(date, "dd.MM.yyyy", System.Globalization.CultureInfo.InvariantCulture));
 
         [Fact]
         public void RateLimiter_Allows20PerMinute_WarnsOnce_ThenDrops()

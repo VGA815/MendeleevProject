@@ -22,6 +22,7 @@ namespace Mendeleev.Web.Bot.Infrastructure
             new() { Command = "menu", Description = "Главное меню" },
             new() { Command = "sub", Description = "Моя подписка" },
             new() { Command = "buy", Description = "Купить или продлить" },
+            new() { Command = "promo", Description = "Ввести промокод" },
             new() { Command = "devices", Description = "Устройства" },
             new() { Command = "help", Description = "Помощь" },
             new() { Command = "key", Description = "Вход на сайт" },
@@ -87,6 +88,10 @@ namespace Mendeleev.Web.Bot.Infrastructure
             if (StaffPolicy.Allows(role, StaffPermission.ViewTariffs))
             {
                 commands.Add(new() { Command = "tariffs", Description = "Тарифы" });
+            }
+            if (StaffPolicy.Allows(role, StaffPermission.ManagePromos))
+            {
+                commands.Add(new() { Command = "promos", Description = "Промокоды" });
             }
 
             commands.Add(new() { Command = "cancel", Description = "Отменить ввод" });

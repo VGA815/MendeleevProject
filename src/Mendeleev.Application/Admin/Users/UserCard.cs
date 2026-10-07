@@ -39,7 +39,8 @@ namespace Mendeleev.Application.Admin.Users
         PaymentStatus Status,
         string Provider,
         string? ProviderPaymentId,
-        bool NeedsReview);
+        bool NeedsReview,
+        string? PromoCode = null);
 
     /// <param name="Available">False when the panel could not be asked.</param>
     public sealed record DevicesCard(bool Available, int Limit, IReadOnlyList<PanelDevice> Items);

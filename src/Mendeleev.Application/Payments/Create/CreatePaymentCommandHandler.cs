@@ -5,7 +5,9 @@ using Mendeleev.Application.Abstractions.Messaging;
 using Mendeleev.Application.Abstractions.Observability;
 using Mendeleev.Application.Abstractions.Payments;
 using Mendeleev.Application.Configuration;
+using Mendeleev.Application.Promos;
 using Mendeleev.Domain.Payments;
+using Mendeleev.Domain.Promos;
 using Mendeleev.Domain.Tariffs;
 using Mendeleev.Domain.Users;
 using Mendeleev.SharedKernel;
@@ -33,7 +35,7 @@ namespace Mendeleev.Application.Payments.Create
                 return PaymentErrors.PaymentsDisabled;
             }
 
-            User? user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == command.UserId, cancellationToken);
+            User? user = await db.Users.FirstOrDefaultAsync(u => u.Id == command.UserId, cancellationToken);
             if (user is null)
             {
                 return UserErrors.NotFound(command.UserId);
@@ -56,16 +58,28 @@ namespace Mendeleev.Application.Payments.Create
             DateTime now = clock.UtcNow;
             DateTime hourAgo = now.AddHours(-1);
 
+            // FR-PAY-15: the discount of the entered code. A code that stopped applying is removed, and the payment is
+            // at the full price — the pay screen says so, the user does not pay the full price unawares.
+            (PromoCode? promo, PromoCode? stale) = await PromoPricing.ResolveSelectedAsync(db, user, now, cancellationToken);
+            if (stale is not null)
+            {
+                user.ClearSelectedPromo(stale.Id, now);
+                await db.SaveChangesAsync(cancellationToken);
+            }
+
+            decimal amount = PromoPricing.FinalPrice(tariff.Price, promo, options.MinAmount);
+            string? droppedCode = stale?.Code;
+
             List<Payment> recent = await db.Payments
                 .AsNoTracking()
                 .Where(p => p.UserId == user.Id && p.CreatedAt > hourAgo)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync(cancellationToken);
 
-            Payment? reusable = recent.FirstOrDefault(p => p.IsReusable(tariff.Id, TimeSpan.FromMinutes(options.ReuseWithinMinutes), now));
+            Payment? reusable = recent.FirstOrDefault(p => p.IsReusable(tariff.Id, promo?.Id, TimeSpan.FromMinutes(options.ReuseWithinMinutes), now));
             if (reusable is not null)
             {
-                return new PaymentLink(reusable.Id, reusable.ConfirmationUrl!, reusable.Amount, tariff.Name, reusable.DaysGranted, Reused: true);
+                return Link(reusable, tariff, promo, reused: true, droppedCode);
             }
 
             if (recent.Count >= options.MaxCreatesPerHour)
@@ -74,9 +88,14 @@ namespace Mendeleev.Application.Payments.Create
             }
 
             IPaymentProvider provider = providers.Active;
-            var payment = Payment.Create(user.Id, tariff, provider.Code, now);
+            var payment = Payment.Create(user.Id, tariff, provider.Code, now, promo?.Id, promo is null ? null : amount);
             db.Payments.Add(payment);
-            db.PaymentEvents.Add(PaymentEvent.Create(payment.Id, provider.Code, PaymentEventKind.Created, Json.Serialize(new { tariff = tariff.Code, amount = payment.Amount }), now));
+            db.PaymentEvents.Add(PaymentEvent.Create(
+                payment.Id,
+                provider.Code,
+                PaymentEventKind.Created,
+                Json.Serialize(new { tariff = tariff.Code, amount = payment.Amount, promo = promo?.Code }),
+                now));
             await db.SaveChangesAsync(cancellationToken);
 
             CreatedPayment created;
@@ -124,7 +143,19 @@ namespace Mendeleev.Application.Payments.Create
                 new KeyValuePair<string, object?>("status", "pending"),
                 new KeyValuePair<string, object?>("provider", provider.Code));
 
-            return new PaymentLink(payment.Id, created.ConfirmationUrl, payment.Amount, tariff.Name, payment.DaysGranted, Reused: false);
+            return Link(payment, tariff, promo, reused: false, droppedCode);
         }
+
+        private static PaymentLink Link(Payment payment, Tariff tariff, PromoCode? promo, bool reused, string? droppedCode) =>
+            new(
+                payment.Id,
+                payment.ConfirmationUrl!,
+                payment.Amount,
+                tariff.Name,
+                payment.DaysGranted,
+                reused,
+                promo?.Code,
+                promo is null ? null : tariff.Price,
+                droppedCode);
     }
 }

@@ -29,12 +29,14 @@ namespace Mendeleev.Application.Admin.Users
                 .Include(s => s.Tariff)
                 .FirstOrDefaultAsync(s => s.UserId == userId, cancellationToken);
 
-            List<PaymentCard> payments = await db.Payments
-                .AsNoTracking()
-                .Where(p => p.UserId == userId)
-                .OrderByDescending(p => p.CreatedAt)
+            List<PaymentCard> payments = await (
+                    from p in db.Payments.AsNoTracking()
+                    where p.UserId == userId
+                    join promo in db.PromoCodes.AsNoTracking() on p.PromoCodeId equals (long?)promo.Id into promos
+                    from promo in promos.DefaultIfEmpty()
+                    orderby p.CreatedAt descending
+                    select new PaymentCard(p.Id, p.CreatedAt, p.Amount, p.Status, p.Provider, p.ProviderPaymentId, p.NeedsReview, promo != null ? promo.Code : null))
                 .Take(5)
-                .Select(p => new PaymentCard(p.Id, p.CreatedAt, p.Amount, p.Status, p.Provider, p.ProviderPaymentId, p.NeedsReview))
                 .ToListAsync(cancellationToken);
 
             DateTime windowStart = now - DeviceReset.Window;

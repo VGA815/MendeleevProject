@@ -22,7 +22,13 @@ namespace Mendeleev.Application.Tariffs.GetPurchasableTariffs
     internal sealed class GetPurchasableTariffsQueryHandler(IApplicationDbContext db)
         : IQueryHandler<GetPurchasableTariffsQuery, IReadOnlyList<TariffView>>
     {
-        public async Task<Result<IReadOnlyList<TariffView>>> Handle(GetPurchasableTariffsQuery query, CancellationToken cancellationToken)
+        public async Task<Result<IReadOnlyList<TariffView>>> Handle(GetPurchasableTariffsQuery query, CancellationToken cancellationToken) =>
+            Result.Success(await PurchasableTariffs.LoadAsync(db, cancellationToken));
+    }
+
+    internal static class PurchasableTariffs
+    {
+        public static async Task<IReadOnlyList<TariffView>> LoadAsync(IApplicationDbContext db, CancellationToken cancellationToken)
         {
             List<Tariff> tariffs = await db.Tariffs
                 .AsNoTracking()
@@ -31,9 +37,9 @@ namespace Mendeleev.Application.Tariffs.GetPurchasableTariffs
                 .ThenBy(t => t.PeriodDays)
                 .ToListAsync(cancellationToken);
 
-            return Result.Success<IReadOnlyList<TariffView>>(tariffs
+            return tariffs
                 .Select(t => new TariffView(t.Code, t.Name, t.Tier, t.Price, t.PeriodDays, t.DeviceLimit, t.TrafficLimitBytes, t.MonthlyEquivalent))
-                .ToList());
+                .ToList();
         }
     }
 }

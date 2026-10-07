@@ -4,6 +4,7 @@ using Mendeleev.Domain.Broadcasts;
 using Mendeleev.Domain.Devices;
 using Mendeleev.Domain.Notifications;
 using Mendeleev.Domain.Payments;
+using Mendeleev.Domain.Promos;
 using Mendeleev.Domain.Staff;
 using Mendeleev.Domain.Subscriptions;
 using Mendeleev.Domain.Tariffs;
@@ -47,6 +48,10 @@ namespace Mendeleev.Infrastructure.Database
         public DbSet<TrafficDaily> TrafficDaily { get; set; }
 
         public DbSet<LinkCode> LinkCodes { get; set; }
+
+        public DbSet<PromoCode> PromoCodes { get; set; }
+
+        public DbSet<PromoRedemption> PromoRedemptions { get; set; }
 
         internal DbSet<OutboxMessage> OutboxMessages { get; set; }
 
@@ -115,9 +120,11 @@ namespace Mendeleev.Infrastructure.Database
             EnsureTransaction();
             bool wasTracked = IsTracked<User>(u => u.Id == userId);
 
-            User? user = await Users
+            // A primary key gives one row at most; no LIMIT, so EF has no «First without OrderBy» to warn about.
+            User? user = (await Users
                 .FromSql($"SELECT * FROM users WHERE id = {userId} FOR UPDATE")
-                .FirstOrDefaultAsync(cancellationToken);
+                .ToListAsync(cancellationToken))
+                .SingleOrDefault();
 
             // A tracked instance is returned as is by the query; refresh it now that the row is ours.
             if (user is not null && wasTracked)
@@ -133,9 +140,11 @@ namespace Mendeleev.Infrastructure.Database
             EnsureTransaction();
             bool wasTracked = IsTracked<Payment>(p => p.Id == paymentId);
 
-            Payment? payment = await Payments
+            // A primary key gives one row at most; no LIMIT, so EF has no «First without OrderBy» to warn about.
+            Payment? payment = (await Payments
                 .FromSql($"SELECT * FROM payments WHERE id = {paymentId} FOR UPDATE")
-                .FirstOrDefaultAsync(cancellationToken);
+                .ToListAsync(cancellationToken))
+                .SingleOrDefault();
 
             if (payment is not null && wasTracked)
             {
@@ -143,6 +152,25 @@ namespace Mendeleev.Infrastructure.Database
             }
 
             return payment;
+        }
+
+        public async Task<PromoCode?> LockPromoCodeAsync(long promoCodeId, CancellationToken cancellationToken)
+        {
+            EnsureTransaction();
+            bool wasTracked = IsTracked<PromoCode>(p => p.Id == promoCodeId);
+
+            // A primary key gives one row at most; no LIMIT, so EF has no «First without OrderBy» to warn about.
+            PromoCode? promo = (await PromoCodes
+                .FromSql($"SELECT * FROM promo_codes WHERE id = {promoCodeId} FOR UPDATE")
+                .ToListAsync(cancellationToken))
+                .SingleOrDefault();
+
+            if (promo is not null && wasTracked)
+            {
+                await Entry(promo).ReloadAsync(cancellationToken);
+            }
+
+            return promo;
         }
 
         public async Task<(User User, bool Created)> GetOrCreateTelegramUserAsync(long telegramId, DateTime utcNow, CancellationToken cancellationToken)

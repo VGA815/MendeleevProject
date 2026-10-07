@@ -1,6 +1,6 @@
 using Mendeleev.Application.Abstractions.Messaging;
 using Mendeleev.Application.Payments.Create;
-using Mendeleev.Application.Tariffs.GetPurchasableTariffs;
+using Mendeleev.Application.Promos;
 using Mendeleev.Domain.Payments;
 using Mendeleev.SharedKernel;
 using Mendeleev.Web.Cabinet;
@@ -10,15 +10,16 @@ namespace Mendeleev.Web.Pages.Cabinet
 {
     /// <summary>
     /// Tariffs and payment (FR-WEB-05) through the same use case as the bot: an unpaid payment for the same
-    /// tariff is shown again, not duplicated. The aggregator's page opens by a link, not by a redirect of
-    /// the form: the CSP allows forms to post only to this site.
+    /// tariff is shown again, not duplicated, and the prices carry the discount of the promo code the user
+    /// entered here or in the bot (FR-PAY-15). The aggregator's page opens by a link, not by a redirect of the
+    /// form: the CSP allows forms to post only to this site.
     /// </summary>
     public sealed class PayModel(
-        IQueryHandler<GetPurchasableTariffsQuery, IReadOnlyList<TariffView>> getTariffs,
+        IQueryHandler<GetOfferQuery, Offer> getOffer,
         ICommandHandler<CreatePaymentCommand, PaymentLink> createPayment)
         : CabinetPageModel
     {
-        public IReadOnlyList<TariffView> Tariffs { get; private set; } = [];
+        public Offer Offer { get; private set; } = new([], null);
 
         public PaymentLink? Payment { get; private set; }
 
@@ -28,7 +29,7 @@ namespace Mendeleev.Web.Pages.Cabinet
 
         public async Task OnGetAsync(CancellationToken cancellationToken)
         {
-            Tariffs = (await getTariffs.Handle(new GetPurchasableTariffsQuery(), cancellationToken)).Value;
+            Offer = (await getOffer.Handle(new GetOfferQuery(UserId), cancellationToken)).Value;
         }
 
         public async Task<IActionResult> OnPostAsync(string? tariff, CancellationToken cancellationToken)
@@ -43,7 +44,7 @@ namespace Mendeleev.Web.Pages.Cabinet
             // ТЗ 27, «Обработка ошибок»: the aggregator is down → «Оплата временно недоступна» and support.
             PaymentsUnavailable = result.Error == PaymentErrors.ProviderUnavailable || result.Error == PaymentErrors.PaymentsDisabled;
             Error = PaymentsUnavailable ? "Оплата временно недоступна. Попробуйте позже или напишите в поддержку." : result.Error.Description;
-            Tariffs = (await getTariffs.Handle(new GetPurchasableTariffsQuery(), cancellationToken)).Value;
+            Offer = (await getOffer.Handle(new GetOfferQuery(UserId), cancellationToken)).Value;
             return Page();
         }
     }

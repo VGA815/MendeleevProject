@@ -9,6 +9,14 @@
     <h1>Оплата</h1>
     <div class="panel">
         <p class="pay-summary"><b>@payment.TariffName</b> — @payment.Amount.ToString("N0", ru) ₽ за @payment.Days дн.</p>
+        @if (payment is { PromoCode: string promoCode, FullPrice: decimal full } && full > payment.Amount)
+        {
+            <p>Скидка по промокоду <b>@promoCode</b>: <s>@full.ToString("N0", ru) ₽</s> @payment.Amount.ToString("N0", ru) ₽.</p>
+        }
+        @if (payment.DroppedPromoCode is string dropped)
+        {
+            <div class="notice warn">Промокод <b>@dropped</b> больше не действует, поэтому цена — без скидки.</div>
+        }
         <p>Оплата криптовалютой (USDT и другие) на странице платёжного сервиса, рубли пересчитываются по курсу на момент создания счёта. Комиссию сети и биржи добавьте сверх суммы счёта: если придёт меньше, счёт будет ждать доплаты. Срок прибавится к текущему.</p>
         @if (payment.Reused)
         {
@@ -28,18 +36,29 @@ else
     {
         <div class="notice error">@error</div>
     }
-    @if (Model.Tariffs.Count == 0)
+    @if (Model.Offer.Promo is { } promo)
+    {
+        <div class="notice ok">Промокод <b>@promo.Code</b>: скидка @promo.DiscountPercent %, цены ниже — уже со скидкой. Скидка действует на одну оплату.</div>
+    }
+    @if (Model.Offer.Tariffs.Count == 0)
     {
         <p>Продажи скоро откроются. Если нужна помощь — напишите в поддержку.</p>
     }
     else
     {
         <ul class="tariffs">
-            @foreach (var tariff in Model.Tariffs)
+            @foreach (var offered in Model.Offer.Tariffs)
             {
-                <partial name="_TariffCard" model="new TariffCard(tariff, CanPay: true)" />
+                <partial name="_TariffCard" model="new TariffCard(offered.Tariff, CanPay: true, offered.FinalPrice)" />
             }
         </ul>
         <p class="muted">Оплата криптовалютой (USDT и другие) на странице платёжного сервиса. Продление прибавляет срок к текущему. Автосписаний нет. Оплачивая подписку, вы принимаете условия <a href="/offer">оферты</a>.</p>
     }
+    <form method="post" asp-page="/Cabinet/Promo" class="panel promo-form">
+        <label for="promo-code">Промокод</label>
+        <div class="promo-row">
+            <input id="promo-code" name="code" type="text" maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false" required />
+            <button type="submit" class="button secondary">Применить</button>
+        </div>
+    </form>
 }

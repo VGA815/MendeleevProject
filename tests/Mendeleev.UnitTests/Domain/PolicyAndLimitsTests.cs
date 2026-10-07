@@ -111,12 +111,28 @@ namespace Mendeleev.UnitTests.Domain
         {
             DateTime now = Msk(10, 1, 10);
             var payment = Payment.Create(1, Basic1M(), "fake", now);
-            payment.IsReusable(payment.TariffId, TimeSpan.FromMinutes(60), now).ShouldBeFalse();
+            payment.IsReusable(payment.TariffId, null, TimeSpan.FromMinutes(60), now).ShouldBeFalse();
 
             payment.MarkPending("p-1", "https://pay", now.AddMinutes(30), now);
-            payment.IsReusable(payment.TariffId, TimeSpan.FromMinutes(60), now.AddMinutes(10)).ShouldBeTrue();
-            payment.IsReusable(payment.TariffId, TimeSpan.FromMinutes(60), now.AddMinutes(27)).ShouldBeFalse();
-            payment.IsReusable(payment.TariffId + 1, TimeSpan.FromMinutes(60), now).ShouldBeFalse();
+            payment.IsReusable(payment.TariffId, null, TimeSpan.FromMinutes(60), now.AddMinutes(10)).ShouldBeTrue();
+            payment.IsReusable(payment.TariffId, null, TimeSpan.FromMinutes(60), now.AddMinutes(27)).ShouldBeFalse();
+            payment.IsReusable(payment.TariffId + 1, null, TimeSpan.FromMinutes(60), now).ShouldBeFalse();
+
+            // A code entered after the payment was created gets its own, discounted payment (FR-PAY-15).
+            payment.IsReusable(payment.TariffId, 7, TimeSpan.FromMinutes(60), now.AddMinutes(10)).ShouldBeFalse();
+        }
+
+        [Fact]
+        public void Payment_WithADiscount_KeepsThePromoCode_AndAnAmountWithinThePrice()
+        {
+            DateTime now = Msk(10, 1, 10);
+            var payment = Payment.Create(1, Basic1M(), "fake", now, promoCodeId: 7, discountedAmount: 169m);
+            payment.Amount.ShouldBe(169m);
+            payment.PromoCodeId.ShouldBe(7);
+
+            Should.Throw<ArgumentOutOfRangeException>(() => Payment.Create(1, Basic1M(), "fake", now, promoCodeId: 7, discountedAmount: 0m));
+            Should.Throw<ArgumentOutOfRangeException>(() => Payment.Create(1, Basic1M(), "fake", now, promoCodeId: 7, discountedAmount: 200m));
+            Should.Throw<ArgumentOutOfRangeException>(() => Payment.Create(1, Basic1M(), "fake", now, promoCodeId: null, discountedAmount: 169m));
         }
     }
 }

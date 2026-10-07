@@ -646,6 +646,21 @@ input.code {
     letter-spacing: 0.08em;
 }
 
+/* Promo code: the field and its button on one line; on a narrow screen the button drops below. */
+.promo-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.promo-row input[type="text"] {
+    flex: 1 1 220px;
+    max-width: 320px;
+    font-family: var(--md-font-mono);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
 .check {
     display: flex;
     align-items: flex-start;

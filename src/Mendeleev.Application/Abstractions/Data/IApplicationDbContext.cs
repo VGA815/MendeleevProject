@@ -3,6 +3,7 @@ using Mendeleev.Domain.Broadcasts;
 using Mendeleev.Domain.Devices;
 using Mendeleev.Domain.Notifications;
 using Mendeleev.Domain.Payments;
+using Mendeleev.Domain.Promos;
 using Mendeleev.Domain.Staff;
 using Mendeleev.Domain.Subscriptions;
 using Mendeleev.Domain.Tariffs;
@@ -27,6 +28,8 @@ namespace Mendeleev.Application.Abstractions.Data
         DbSet<Broadcast> Broadcasts { get; }
         DbSet<TrafficDaily> TrafficDaily { get; }
         DbSet<LinkCode> LinkCodes { get; }
+        DbSet<PromoCode> PromoCodes { get; }
+        DbSet<PromoRedemption> PromoRedemptions { get; }
 
         /// <summary>
         /// Saves the changes and, in the same transaction, the domain events raised by the tracked
@@ -51,6 +54,12 @@ namespace Mendeleev.Application.Abstractions.Data
 
         /// <summary>Loads and row-locks a payment inside the current transaction.</summary>
         Task<Payment?> LockPaymentAsync(Guid paymentId, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Loads and row-locks a promo code inside the current transaction, so concurrent uses are counted one by
+        /// one and the last bonus activation goes to one user only. Taken after the user's lock.
+        /// </summary>
+        Task<PromoCode?> LockPromoCodeAsync(long promoCodeId, CancellationToken cancellationToken);
 
         /// <summary>
         /// INSERT … ON CONFLICT DO NOTHING by Telegram ID, then read: parallel /start from one person

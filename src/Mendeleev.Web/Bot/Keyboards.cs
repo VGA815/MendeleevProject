@@ -25,6 +25,7 @@ namespace Mendeleev.Web.Bot
         public const string KeyIssue = "key!";
         public const string LinkCode = "lnk";
         public const string Qr = "qr";
+        public const string Promo = "promo";
         public const string Noop = "nop";
     }
 

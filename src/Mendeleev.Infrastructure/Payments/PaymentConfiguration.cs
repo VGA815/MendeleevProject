@@ -1,4 +1,5 @@
 using Mendeleev.Domain.Payments;
+using Mendeleev.Domain.Promos;
 using Mendeleev.Domain.Tariffs;
 using Mendeleev.Domain.Users;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +28,7 @@ namespace Mendeleev.Infrastructure.Payments
 
             builder.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
             builder.HasOne<Tariff>().WithMany().HasForeignKey(x => x.TariffId).OnDelete(DeleteBehavior.Restrict);
+            builder.HasOne<PromoCode>().WithMany().HasForeignKey(x => x.PromoCodeId).OnDelete(DeleteBehavior.Restrict);
 
             // The provider's payment id is the idempotency key (FR-PAY-03).
             builder.HasIndex(x => new { x.Provider, x.ProviderPaymentId })

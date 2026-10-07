@@ -37,6 +37,12 @@ namespace Mendeleev.Domain.Users
         /// <summary>The user blocked the bot: nothing is sent until they write to it again.</summary>
         public bool BotBlocked { get; private set; }
 
+        /// <summary>
+        /// The discount code the user entered: it applies to the next payment, in the bot and in the cabinet alike,
+        /// until that payment succeeds or another code replaces it — one code at a time (ТЗ 22, «Промокоды»).
+        /// </summary>
+        public long? SelectedPromoCodeId { get; private set; }
+
         public DateTime CreatedAt { get; private set; }
 
         public DateTime UpdatedAt { get; private set; }
@@ -135,6 +141,24 @@ namespace Mendeleev.Domain.Users
             AccountKeyIssuedAt = webAccount.AccountKeyIssuedAt;
             Email = webAccount.Email ?? Email;
             RotateSessionStamp(utcNow);
+        }
+
+        public void SelectPromo(long promoCodeId, DateTime utcNow)
+        {
+            SelectedPromoCodeId = promoCodeId;
+            UpdatedAt = utcNow;
+        }
+
+        /// <summary>Drops the selected code — only <paramref name="promoCodeId"/>, if given, so a newer choice stays.</summary>
+        public void ClearSelectedPromo(long? promoCodeId, DateTime utcNow)
+        {
+            if (SelectedPromoCodeId is null || promoCodeId is not null && SelectedPromoCodeId != promoCodeId)
+            {
+                return;
+            }
+
+            SelectedPromoCodeId = null;
+            UpdatedAt = utcNow;
         }
 
         public void MarkTrialUsed(DateTime utcNow)

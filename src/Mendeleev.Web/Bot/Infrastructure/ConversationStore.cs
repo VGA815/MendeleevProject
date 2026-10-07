@@ -39,6 +39,23 @@ namespace Mendeleev.Web.Bot.Infrastructure
                 ? list[index]
                 : null;
 
+        /// <summary>A user pressed «Ввести промокод»: their next plain message is the code. Only the fact is kept.</summary>
+        public void SetPromoPrompt(long chatId) => cache.Set(PromoPromptKey(chatId), true, Lifetime);
+
+        /// <returns>True once, if the user was asked for a code.</returns>
+        public bool TakePromoPrompt(long chatId)
+        {
+            if (!cache.TryGetValue(PromoPromptKey(chatId), out _))
+            {
+                return false;
+            }
+
+            cache.Remove(PromoPromptKey(chatId));
+            return true;
+        }
+
+        public void ClearPromoPrompt(long chatId) => cache.Remove(PromoPromptKey(chatId));
+
         public void SetManualPayment(long chatId, ManualPaymentDraft draft) => cache.Set(ManualPaymentKey(chatId), draft, Lifetime);
 
         /// <summary>
@@ -59,5 +76,7 @@ namespace Mendeleev.Web.Bot.Infrastructure
         private static string Key(long chatId) => $"conversation:{chatId}";
 
         private static string ManualPaymentKey(long chatId) => $"manual-payment:{chatId}";
+
+        private static string PromoPromptKey(long chatId) => $"promo-prompt:{chatId}";
     }
 }

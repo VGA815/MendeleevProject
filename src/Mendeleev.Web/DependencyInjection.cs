@@ -119,6 +119,11 @@ namespace Mendeleev.Web
                         context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "anonymous",
                         _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = LinkCodeWindow })
                     : RateLimitPartition.GetNoLimiter("read"));
+                options.AddPolicy(RateLimitPolicies.Promo, context => HttpMethods.IsPost(context.Request.Method)
+                    ? RateLimitPartition.GetFixedWindowLimiter(
+                        "promo:" + (context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "anonymous"),
+                        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromHours(1) })
+                    : RateLimitPartition.GetNoLimiter("read"));
             });
 
             services.AddOpenTelemetry().WithMetrics(metrics => metrics
