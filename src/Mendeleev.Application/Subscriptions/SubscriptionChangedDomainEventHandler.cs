@@ -72,6 +72,7 @@ namespace Mendeleev.Application.Subscriptions
                 SubscriptionNotice.PromoBonus => NotificationKind.PromoBonus,
                 SubscriptionNotice.RefundEnded => NotificationKind.RefundEnded,
                 SubscriptionNotice.RefundShortened => NotificationKind.RefundShortened,
+                SubscriptionNotice.MassCompensated => NotificationKind.MassCompensated,
                 _ => null,
             };
             if (kind is null)
@@ -86,9 +87,12 @@ namespace Mendeleev.Application.Subscriptions
                 subscription.UserId,
                 kind.Value,
                 Notification.KeyFor(kind.Value, subscription.UserId, discriminator),
-                values: null,
+                domainEvent.Detail is string detail ? new Dictionary<string, string> { [ReasonKey] = detail } : null,
                 cancellationToken);
         }
+
+        /// <summary>The placeholder <c>{reason}</c> of a mass compensation's message (FR-SUB-16).</summary>
+        public const string ReasonKey = "reason";
 
         private async Task RecordPaymentToAccessAsync(SubscriptionChangedDomainEvent domainEvent, CancellationToken cancellationToken)
         {

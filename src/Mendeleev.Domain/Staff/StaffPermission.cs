@@ -18,5 +18,6 @@ namespace Mendeleev.Domain.Staff
         RefundPayments,
         SwitchAggregator,
         ManageTariffs,
+        MassCompensate,
     }
 }

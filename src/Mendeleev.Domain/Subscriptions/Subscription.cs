@@ -217,17 +217,18 @@ namespace Mendeleev.Domain.Subscriptions
         }
 
         /// <summary>
-        /// Compensation by a staff member (FR-SUB-12). The limits by role are checked by the caller;
-        /// an expired subscription comes back to life, an archived one gets a new link.
+        /// Compensation by a staff member (FR-SUB-12), or one of many after an outage (FR-SUB-16: <paramref name="reason"/>
+        /// goes into the user's message). The limits by role are checked by the caller; an expired subscription comes
+        /// back to life, an archived one gets a new link.
         /// </summary>
-        public Result ExtendByStaff(int days, string noticeKey, DateTime utcNow)
+        public Result ExtendByStaff(int days, string noticeKey, DateTime utcNow, string? reason = null)
         {
             if (days <= 0)
             {
                 return Result.Failure(SubscriptionErrors.InvalidDays);
             }
 
-            SubscriptionNotice notice = SubscriptionNotice.Compensated;
+            SubscriptionNotice notice = reason is null ? SubscriptionNotice.Compensated : SubscriptionNotice.MassCompensated;
 
             switch (Status)
             {
@@ -250,7 +251,7 @@ namespace Mendeleev.Domain.Subscriptions
                     break;
             }
 
-            Changed(notice, noticeKey, utcNow);
+            Changed(notice, noticeKey, utcNow, reason);
             return Result.Success();
         }
 
@@ -472,11 +473,11 @@ namespace Mendeleev.Domain.Subscriptions
             return SubscriptionNotice.AccessIssued;
         }
 
-        private void Changed(SubscriptionNotice notice, string? noticeKey, DateTime utcNow)
+        private void Changed(SubscriptionNotice notice, string? noticeKey, DateTime utcNow, string? detail = null)
         {
             SyncState = SyncState.Pending;
             UpdatedAt = utcNow;
-            Raise(new SubscriptionChangedDomainEvent(UserId, notice, noticeKey));
+            Raise(new SubscriptionChangedDomainEvent(UserId, notice, noticeKey, detail));
         }
 
         private static DateTime Later(DateTime a, DateTime b) => a > b ? a : b;

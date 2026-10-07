@@ -4,18 +4,21 @@ using Mendeleev.Application.Abstractions;
 using Mendeleev.Application.Abstractions.Data;
 using Mendeleev.Application.Abstractions.Delivery;
 using Mendeleev.Application.Abstractions.Messaging;
+using Mendeleev.Application.Admin.Anomalies;
+using Mendeleev.Application.Configuration;
 using Mendeleev.Application.Payments.Reconciliation;
 using Mendeleev.Domain.Audit;
 using Mendeleev.Domain.Staff;
 using Mendeleev.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Mendeleev.Application.Admin.Stats
 {
     /// <summary>
-    /// The daily summary to admins at 10:00 МСК: yesterday's numbers and the result of the night's
-    /// payment reconciliation (ТЗ 28, «Статистика»).
+    /// The daily summary to admins at 10:00 МСК: yesterday's numbers, the result of the night's payment
+    /// reconciliation (ТЗ 28, «Статистика») and the anomaly report (FR-ADM-17) — one message to admins and tech admins.
     /// </summary>
     public sealed record DailySummaryCommand : ICommand<int>;
 
@@ -23,6 +26,7 @@ namespace Mendeleev.Application.Admin.Stats
         IApplicationDbContext db,
         IUserMessenger messenger,
         IDateTimeProvider clock,
+        IOptions<AnomalyOptions> anomalyOptions,
         ILogger<DailySummaryCommandHandler> logger)
         : ICommandHandler<DailySummaryCommand, int>
     {
@@ -47,6 +51,9 @@ namespace Mendeleev.Application.Admin.Stats
                 ? "Сверка платежей: не выполнялась за последние сутки ⚠️"
                 : string.Create(CultureInfo.InvariantCulture,
                     $"Сверка платежей: проверено {reconciliation.Checked}, применено пропущенных {reconciliation.AppliedMissed}, расхождений {reconciliation.Mismatches}"));
+
+            AnomalyReport anomalies = await AnomalyDetector.DailyAsync(db, anomalyOptions.Value, now, cancellationToken);
+            text.Append("\n\n").Append(AnomalyFormatter.Format(anomalies, anomalyOptions.Value.ReportListLimit));
 
             List<long> admins = await db.Staff
                 .AsNoTracking()

@@ -96,6 +96,12 @@ namespace Mendeleev.Application.Notifications
                 case NotificationKind.TrialTrafficExhausted:
                     return subscription is { Status: SubscriptionStatus.Expired };
 
+                case NotificationKind.ArchiveSoon:
+                    // Renewed or archived meanwhile: nothing to warn about.
+                    return subscription is { Status: SubscriptionStatus.Expired }
+                        && values.TryGetValue(ExpiresTicksKey, out string? expiredTicks)
+                        && expiredTicks == subscription.ExpiresAt.Ticks.ToString(CultureInfo.InvariantCulture);
+
                 case NotificationKind.Onboarding:
                     return subscription is { GrantsAccess: true, FirstConnectedAt: null };
 

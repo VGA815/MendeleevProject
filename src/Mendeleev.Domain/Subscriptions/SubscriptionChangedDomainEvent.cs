@@ -8,8 +8,10 @@ namespace Mendeleev.Domain.Subscriptions
     /// freshly created subscription has no id yet when the event is written to the outbox.
     /// </summary>
     /// <param name="NoticeKey">Makes the resulting notification unique (payment id, trial start, …).</param>
+    /// <param name="Detail">Text for the user's message, e.g. the reason of a mass compensation (FR-SUB-16).</param>
     public sealed record SubscriptionChangedDomainEvent(
         long UserId,
         SubscriptionNotice Notice,
-        string? NoticeKey) : IDomainEvent;
+        string? NoticeKey,
+        string? Detail = null) : IDomainEvent;
 }

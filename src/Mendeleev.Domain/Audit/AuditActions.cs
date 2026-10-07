@@ -22,6 +22,7 @@ namespace Mendeleev.Domain.Audit
         public const string PaymentProviderSwitch = "payments.provider_switch";
         public const string TariffPrice = "tariff.price";
         public const string TariffActivity = "tariff.activity";
+        public const string SubscriptionMassExtend = "subscription.mass_extend";
 
         public const string PanelDriftFixed = "panel.drift_fixed";
         public const string PanelUserDeleted = "panel.user_deleted";

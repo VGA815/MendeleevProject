@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Mendeleev.Application.Abstractions.Delivery;
 using Mendeleev.Application.Abstractions.Messaging;
+using Mendeleev.Application.Admin.Anomalies;
 using Mendeleev.Application.Admin.Audit;
 using Mendeleev.Application.Admin.Broadcasts;
 using Mendeleev.Application.Admin.Promos;
@@ -61,7 +62,8 @@ namespace Mendeleev.Web.Bot.Handlers
         IQueryHandler<ListPromoCodesQuery, IReadOnlyList<PromoCodeView>> listPromos,
         IQueryHandler<GetPromoCodeQuery, PromoCodeDetails> getPromo,
         IOptions<ServiceOptions> serviceOptions,
-        StaffPaymentsHandler payments)
+        StaffPaymentsHandler payments,
+        StaffCompensationHandler compensation)
     {
         private const string PromoUsage =
             "<code>/promos new КОД 20%</code> — скидка на оплату, от 1 до 99 %\n" +
@@ -194,6 +196,30 @@ namespace Mendeleev.Web.Bot.Handlers
             }
 
             text.Append(CultureInfo.InvariantCulture, $"\nСбросов устройств за 30 дней: {card.ResetsLast30Days}");
+
+            // ТЗ 28, «Карточка пользователя»: флаги аномалий (FR-ADM-17).
+            if (card.Anomalies is { Any: true } anomalies)
+            {
+                var flags = new List<string>();
+                if (anomalies.FrequentResets)
+                {
+                    flags.Add("частые сбросы устройств");
+                }
+                if (anomalies.Spike is TrafficSpike spike)
+                {
+                    flags.Add($"трафик {AnomalyFormatter.Gb(spike.Bytes)} за {spike.Day:dd.MM} при медиане {AnomalyFormatter.Gb(spike.MedianBytes)}");
+                }
+                if (anomalies.TorrentEvents30Days > 0)
+                {
+                    flags.Add(string.Create(CultureInfo.InvariantCulture, $"Torrent Blocker: {anomalies.TorrentEvents30Days} за 30 дней"));
+                }
+                if (anomalies.UnpaidInvoices24Hours > 0)
+                {
+                    flags.Add(string.Create(CultureInfo.InvariantCulture, $"неоплаченных счетов за сутки: {anomalies.UnpaidInvoices24Hours}"));
+                }
+                text.Append("\n⚠️ Аномалии: ").Append(string.Join("; ", flags));
+            }
+
             return text.ToString();
         }
 
@@ -421,6 +447,10 @@ namespace Mendeleev.Web.Bot.Handlers
 
                 case ConversationKinds.ManualPayment when conversation is { UserId: long payerId, Tariff: string tariffCode }:
                     await ManualPaymentInputAsync(context, payerId, tariffCode, text, cancellationToken);
+                    return true;
+
+                case ConversationKinds.CompensationWindow when conversation.Option is string token:
+                    await compensation.WindowAsync(context, token, text, cancellationToken);
                     return true;
 
                 case ConversationKinds.RefundReason when conversation is { PaymentId: Guid paymentId } && Enum.TryParse(conversation.Option, out RefundKind kind):

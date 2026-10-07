@@ -1,10 +1,13 @@
 using Mendeleev.Application.Abstractions.Data;
 using Mendeleev.Application.Abstractions.Panel;
+using Mendeleev.Application.Admin.Anomalies;
+using Mendeleev.Application.Configuration;
 using Mendeleev.Domain.Devices;
 using Mendeleev.Domain.Subscriptions;
 using Mendeleev.Domain.Users;
 using Mendeleev.SharedKernel;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Mendeleev.Application.Admin.Users
 {
@@ -13,7 +16,8 @@ namespace Mendeleev.Application.Admin.Users
         Task<UserCard?> BuildAsync(long userId, CancellationToken cancellationToken);
     }
 
-    internal sealed class UserCardBuilder(IApplicationDbContext db, IPanelClient panel, IDateTimeProvider clock) : IUserCardBuilder
+    internal sealed class UserCardBuilder(IApplicationDbContext db, IPanelClient panel, IDateTimeProvider clock, IOptions<AnomalyOptions> anomalyOptions)
+        : IUserCardBuilder
     {
         public async Task<UserCard?> BuildAsync(long userId, CancellationToken cancellationToken)
         {
@@ -41,6 +45,7 @@ namespace Mendeleev.Application.Admin.Users
 
             DateTime windowStart = now - DeviceReset.Window;
             int resets = await db.DeviceResets.CountAsync(r => r.UserId == userId && r.CreatedAt > windowStart, cancellationToken);
+            UserAnomalies anomalies = await AnomalyDetector.ForUserAsync(db, anomalyOptions.Value, userId, subscription?.Id, resets, now, cancellationToken);
 
             DevicesCard? devices = null;
             if (subscription?.PanelUserId is int panelUserId)
@@ -79,7 +84,8 @@ namespace Mendeleev.Application.Admin.Users
                 subscriptionCard,
                 payments,
                 devices,
-                resets);
+                resets,
+                anomalies);
         }
     }
 }

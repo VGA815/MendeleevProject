@@ -1,4 +1,5 @@
 using Mendeleev.Application.Abstractions.Panel;
+using Mendeleev.Application.Admin.Anomalies;
 using Mendeleev.Domain.Payments;
 using Mendeleev.Domain.Subscriptions;
 using Mendeleev.Domain.Users;
@@ -20,7 +21,8 @@ namespace Mendeleev.Application.Admin.Users
         SubscriptionCard? Subscription,
         IReadOnlyList<PaymentCard> Payments,
         DevicesCard? Devices,
-        int ResetsLast30Days);
+        int ResetsLast30Days,
+        UserAnomalies? Anomalies = null);
 
     public sealed record SubscriptionCard(
         string TariffName,

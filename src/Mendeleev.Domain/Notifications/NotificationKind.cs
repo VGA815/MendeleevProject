@@ -25,5 +25,11 @@ namespace Mendeleev.Domain.Notifications
 
         /// <summary>A refund of an erroneous payment was marked and the term got shorter (FR-PAY-16).</summary>
         RefundShortened = 13,
+
+        /// <summary>A mass compensation after an outage, with its reason (FR-SUB-16).</summary>
+        MassCompensated = 14,
+
+        /// <summary>Three days before an expired subscription is archived and its link stops (FR-SUB-17).</summary>
+        ArchiveSoon = 15,
     }
 }

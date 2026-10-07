@@ -20,6 +20,7 @@ namespace Mendeleev.Web.Bot.Infrastructure
         public const string BroadcastText = "broadcast_text";
         public const string ManualPayment = "manual_payment";
         public const string RefundReason = "refund_reason";
+        public const string CompensationWindow = "compensation_window";
     }
 
     /// <summary>An action waiting for its «Подтвердить» button; the button carries the token.</summary>
@@ -77,6 +78,11 @@ namespace Mendeleev.Web.Bot.Infrastructure
         public void SetDraft<T>(long chatId, T draft)
             where T : class, IStaffDraft =>
             cache.Set(DraftKey<T>(chatId), draft, Lifetime);
+
+        /// <summary>The draft behind a button that changes it rather than confirms it.</summary>
+        public T? GetDraft<T>(long chatId, string token)
+            where T : class, IStaffDraft =>
+            cache.Get<T>(DraftKey<T>(chatId)) is { } draft && draft.Token == token ? draft : null;
 
         /// <summary>Gives the draft out once, and only to the button it was shown with (see <see cref="TakeManualPayment"/>).</summary>
         public T? TakeDraft<T>(long chatId, string token)

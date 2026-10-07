@@ -87,6 +87,7 @@ namespace Mendeleev.Infrastructure
             services.Configure<ServiceOptions>(configuration.GetSection(ServiceOptions.SectionName));
             services.Configure<SubscriptionOptions>(configuration.GetSection(SubscriptionOptions.SectionName));
             services.Configure<PaymentOptions>(configuration.GetSection(PaymentOptions.SectionName));
+            services.Configure<AnomalyOptions>(configuration.GetSection(AnomalyOptions.SectionName));
             services.Configure<AlertOptions>(configuration.GetSection(AlertOptions.SectionName));
             return services;
         }

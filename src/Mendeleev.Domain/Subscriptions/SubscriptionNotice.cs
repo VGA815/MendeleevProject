@@ -22,5 +22,8 @@ namespace Mendeleev.Domain.Subscriptions
 
         /// <summary>A refund of an erroneous payment took its days away (FR-PAY-16).</summary>
         RefundShortened = 9,
+
+        /// <summary>One of many extended after an outage; the event carries the reason (FR-SUB-16).</summary>
+        MassCompensated = 10,
     }
 }

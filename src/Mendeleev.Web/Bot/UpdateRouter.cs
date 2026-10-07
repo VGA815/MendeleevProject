@@ -28,6 +28,7 @@ namespace Mendeleev.Web.Bot
         UserHandler user,
         StaffHandler staff,
         StaffPaymentsHandler staffPayments,
+        StaffCompensationHandler staffCompensation,
         IOptionsMonitor<BotContent> content,
         ICommandHandler<EnsureTelegramUserCommand, TelegramUserState> ensureUser,
         ICommandHandler<SetBotBlockedCommand> setBotBlocked,
@@ -170,6 +171,9 @@ namespace Mendeleev.Web.Bot
                 case "/refund" when member.Can(StaffPermission.RefundPayments):
                     await staffPayments.RefundCommandAsync(context, arguments, cancellationToken);
                     return true;
+                case "/compensate" when member.Can(StaffPermission.MassCompensate):
+                    await staffCompensation.StartAsync(context, arguments, cancellationToken);
+                    return true;
                 case "/promos" when member.Can(StaffPermission.ManagePromos):
                     await staff.PromosAsync(context, arguments, cancellationToken);
                     return true;
@@ -205,7 +209,7 @@ namespace Mendeleev.Web.Bot
             if (data.StartsWith("s:", StringComparison.Ordinal) || data.StartsWith("bc:", StringComparison.Ordinal)
                 || data.StartsWith("st:", StringComparison.Ordinal) || data.StartsWith("pr:", StringComparison.Ordinal)
                 || data.StartsWith("rf:", StringComparison.Ordinal) || data.StartsWith("ag:", StringComparison.Ordinal)
-                || data.StartsWith("tf:", StringComparison.Ordinal))
+                || data.StartsWith("tf:", StringComparison.Ordinal) || data.StartsWith("mc:", StringComparison.Ordinal))
             {
                 if (context.Staff is not null)
                 {
@@ -388,6 +392,21 @@ namespace Mendeleev.Web.Bot
                     break;
                 case ["tf", "ok", var token]:
                     await staffPayments.TariffConfirmAsync(context, token, cancellationToken);
+                    break;
+                case ["mc", "now", var token]:
+                    await staffCompensation.ActiveNowAsync(context, token, cancellationToken);
+                    break;
+                case ["mc", "win", var token]:
+                    await staffCompensation.AskWindowAsync(context, token, cancellationToken);
+                    break;
+                case ["mc", "tr", var token]:
+                    await staffCompensation.ToggleTrialAsync(context, token, cancellationToken);
+                    break;
+                case ["mc", "go", var token]:
+                    await staffCompensation.GoAsync(context, token, cancellationToken);
+                    break;
+                case ["mc", "x", var token]:
+                    await staffCompensation.CancelAsync(context, token, cancellationToken);
                     break;
                 default:
                     logger.LogDebug("Unknown staff callback");

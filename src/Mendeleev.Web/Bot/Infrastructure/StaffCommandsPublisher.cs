@@ -102,6 +102,10 @@ namespace Mendeleev.Web.Bot.Infrastructure
             {
                 commands.Add(new() { Command = "aggregator", Description = "Агрегаторы оплаты" });
             }
+            if (StaffPolicy.Allows(role, StaffPermission.MassCompensate))
+            {
+                commands.Add(new() { Command = "compensate", Description = "Массовая компенсация" });
+            }
 
             commands.Add(new() { Command = "cancel", Description = "Отменить ввод" });
             return commands;

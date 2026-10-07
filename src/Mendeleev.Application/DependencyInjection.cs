@@ -48,6 +48,7 @@ namespace Mendeleev.Application
             services.AddOptions<ServiceOptions>();
             services.AddOptions<SubscriptionOptions>();
             services.AddOptions<PaymentOptions>();
+            services.AddOptions<AnomalyOptions>();
 
             services.AddScoped<INotificationScheduler, NotificationScheduler>();
             services.AddScoped<IPanelSynchronizer, PanelSynchronizer>();

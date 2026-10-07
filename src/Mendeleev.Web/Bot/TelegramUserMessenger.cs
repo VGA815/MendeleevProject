@@ -72,6 +72,7 @@ namespace Mendeleev.Web.Bot
                 case NotificationKind.Expiry3d:
                 case NotificationKind.Expiry1d:
                 case NotificationKind.Expired:
+                case NotificationKind.ArchiveSoon:
                     return Keyboards.Of([renew]);
 
                 case NotificationKind.TrialTrafficExhausted:

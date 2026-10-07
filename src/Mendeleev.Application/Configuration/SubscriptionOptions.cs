@@ -11,6 +11,12 @@ namespace Mendeleev.Application.Configuration
         /// <summary>How long the account and the link live after expiry (FR-SUB-08).</summary>
         public int RetentionAfterExpiryDays { get; init; } = 30;
 
+        /// <summary>
+        /// «Через 3 дня ссылка перестанет работать» goes this many days before the archive — on the 27th day
+        /// after the end with the 30-day retention (FR-SUB-17).
+        /// </summary>
+        public int ArchiveReminderDaysBefore { get; init; } = 3;
+
         /// <summary>Quiet hours for the 3-day and 1-day reminders, Moscow time: 23:00–09:00.</summary>
         public int QuietHoursStartHour { get; init; } = 23;
 
