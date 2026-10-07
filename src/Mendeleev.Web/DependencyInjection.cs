@@ -2,6 +2,7 @@ using System.Threading.RateLimiting;
 using Mendeleev.Application.Abstractions.Delivery;
 using Mendeleev.Application.Abstractions.Observability;
 using Mendeleev.Infrastructure.Payments.Fake;
+using Mendeleev.Infrastructure.Payments.TryBit;
 using Mendeleev.Infrastructure.Telegram;
 using Mendeleev.Web.Bot;
 using Mendeleev.Web.Bot.Content;
@@ -46,7 +47,8 @@ namespace Mendeleev.Web
                 options.TextEncoderSettings = new System.Text.Encodings.Web.TextEncoderSettings(System.Text.Unicode.UnicodeRanges.All));
 
             // The offer sends refund requests and claims to the support email, and the aggregator's moderation looks
-            // for it (lava.ru/site-requirements; ТЗ 27, «Публичные страницы»): production takes no payments without it.
+            // for working contacts (TryBit, «Requirements and Restrictions»; ТЗ 27, «Публичные страницы»): production
+            // takes no payments without it.
             bool takesPayments = configuration.GetValue<bool>("Payments:Enabled");
             services.AddOptions<Pages.SiteOptions>()
                 .Bind(configuration.GetSection(Pages.SiteOptions.SectionName))
@@ -61,6 +63,13 @@ namespace Mendeleev.Web
                     $"Payments:Fake:Enabled is allowed only in Development and Staging, not in {environment.EnvironmentName}.")
                 .Validate(o => !o.Enabled || environment.IsDevelopment() || !string.IsNullOrWhiteSpace(o.WebhookSecret),
                     "Payments:Fake:WebhookSecret is required outside Development.")
+                .ValidateOnStart();
+
+            // A TryBit test invoice is confirmed in its dashboard without any payment: it may buy a subscription only
+            // where the fake aggregator may (FR-PAY-04 on staging).
+            services.AddOptions<TryBitPaymentOptions>()
+                .Validate(o => !o.AcceptTestInvoices || environment.IsDevelopment() || environment.IsStaging(),
+                    $"Payments:TryBit:AcceptTestInvoices is allowed only in Development and Staging, not in {environment.EnvironmentName}.")
                 .ValidateOnStart();
 
             services.AddExceptionHandler<GlobalExceptionHandler>();

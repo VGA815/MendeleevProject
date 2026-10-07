@@ -16,7 +16,7 @@ using Mendeleev.Infrastructure.Outbox;
 using Mendeleev.Infrastructure.Panel;
 using Mendeleev.Infrastructure.Payments;
 using Mendeleev.Infrastructure.Payments.Fake;
-using Mendeleev.Infrastructure.Payments.Lava;
+using Mendeleev.Infrastructure.Payments.TryBit;
 using Mendeleev.Infrastructure.Seeding;
 using Mendeleev.Infrastructure.Telegram;
 using Mendeleev.Infrastructure.Time;
@@ -144,10 +144,10 @@ namespace Mendeleev.Infrastructure
         private static IServiceCollection AddPayments(this IServiceCollection services, IConfiguration configuration)
         {
             services.Configure<FakePaymentOptions>(configuration.GetSection(FakePaymentOptions.SectionName));
-            services.AddOptions<LavaPaymentOptions>()
-                .Bind(configuration.GetSection(LavaPaymentOptions.SectionName))
+            services.AddOptions<TryBitPaymentOptions>()
+                .Bind(configuration.GetSection(TryBitPaymentOptions.SectionName))
                 .Validate(o => !o.Enabled || o.IsConfigured,
-                    "Payments:Lava:ShopId, Payments:Lava:SecretKey and Payments:Lava:WebhookKey are required when Payments:Lava:Enabled.")
+                    "Payments:TryBit:ShopId, Payments:TryBit:ApiKey and Payments:TryBit:SecretKey are required when Payments:TryBit:Enabled.")
                 .ValidateOnStart();
 
             var switchedOn = new List<string>();
@@ -161,12 +161,12 @@ namespace Mendeleev.Infrastructure
             }
 
             // Every aggregator is a further IPaymentProvider registration (FR-PAY-08, ТЗ 23, «Выбор агрегатора»).
-            if (configuration.GetValue<bool>($"{LavaPaymentOptions.SectionName}:Enabled"))
+            if (configuration.GetValue<bool>($"{TryBitPaymentOptions.SectionName}:Enabled"))
             {
-                services.AddLavaClient();
-                services.AddSingleton<LavaPaymentProvider>();
-                services.AddSingleton<IPaymentProvider>(sp => sp.GetRequiredService<LavaPaymentProvider>());
-                switchedOn.Add(LavaPaymentProvider.ProviderCode);
+                services.AddTryBitClient();
+                services.AddSingleton<TryBitPaymentProvider>();
+                services.AddSingleton<IPaymentProvider>(sp => sp.GetRequiredService<TryBitPaymentProvider>());
+                switchedOn.Add(TryBitPaymentProvider.ProviderCode);
             }
 
             // A switch to a provider that is not on stops the start instead of failing every «Оплатить».
@@ -180,15 +180,16 @@ namespace Mendeleev.Infrastructure
         }
 
         /// <summary>
-        /// Lava's HTTP pipeline. Every Lava method is a POST and an invoice's <c>orderId</c> cannot be used twice, so
+        /// TryBit's HTTP pipeline. Every TryBit method is a POST and nothing says an <c>order_id</c> is refused twice, so
         /// nothing is retried here: a create that timed out may exist already, and the 5-minute check asks again.
         /// </summary>
-        private static IServiceCollection AddLavaClient(this IServiceCollection services)
+        private static IServiceCollection AddTryBitClient(this IServiceCollection services)
         {
-            services.AddHttpClient(LavaPaymentProvider.HttpClientName, (sp, client) =>
+            services.AddHttpClient(TryBitPaymentProvider.HttpClientName, (sp, client) =>
                 {
-                    LavaPaymentOptions options = sp.GetRequiredService<IOptions<LavaPaymentOptions>>().Value;
+                    TryBitPaymentOptions options = sp.GetRequiredService<IOptions<TryBitPaymentOptions>>().Value;
                     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Token", options.ApiKey);
                     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 })
                 .AddStandardResilienceHandler(resilience =>

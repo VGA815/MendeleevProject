@@ -9,7 +9,7 @@
     string supportUrl = Content.CurrentValue.SupportUrl;
     string supportName = supportUrl.StartsWith(TelegramPrefix, StringComparison.OrdinalIgnoreCase) ? "@" + supportUrl[TelegramPrefix.Length..] : supportUrl;
 }
-@* Support contacts the aggregator's moderation looks for (lava.ru/site-requirements): on the contacts page, in the
+@* Support contacts the aggregator's moderation looks for (TryBit: email, phone, messengers): on the contacts page, in the
    offer and in the personal data policy. The seller's name, requisites and address are not published (05.10). *@
 <dl class="contact-list">
     @if (!string.IsNullOrWhiteSpace(site.SupportEmail))

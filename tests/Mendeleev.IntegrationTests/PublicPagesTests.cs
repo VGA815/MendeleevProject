@@ -11,9 +11,9 @@ using Microsoft.Extensions.Options;
 namespace Mendeleev.IntegrationTests
 {
     /// <summary>
-    /// ТЗ 27, «Публичные страницы»: what the aggregator's moderation checks on the site (lava.ru/site-requirements) —
-    /// support contacts, filled-in tariff cards with prices, the refund terms, the personal data policy, and that
-    /// every link leads to a working page. The seller's name, requisites and address are not published (05.10).
+    /// ТЗ 27, «Публичные страницы»: what the aggregator's moderation checks on the site (TryBit, «Requirements and
+    /// Restrictions») — support contacts, the services with prices, the payment and refund terms, the personal data
+    /// policy, and that every link leads to a working page. The seller's name, requisites and address are not published (05.10).
     /// </summary>
     [Collection(nameof(PostgresCollection))]
     public sealed partial class PublicPagesTests(PostgresFixture postgres) : IAsyncLifetime
@@ -51,6 +51,7 @@ namespace Mendeleev.IntegrationTests
             html.ShouldContain("Лёгкий тест");
             html.ShouldContain("10,0 ГБ");
             html.ShouldContain("физической доставки нет");
+            html.ShouldContain("Оплата криптовалютой");
             html.ShouldContain("href=\"/offer#refund\"");
         }
 
@@ -80,6 +81,7 @@ namespace Mendeleev.IntegrationTests
             offer.ShouldContain("Администрация сервиса «Mendeleev» (далее — Исполнитель)");
             offer.ShouldContain("<h2 id=\"refund\">6. Отмена оплаты и возврат денег</h2>");
             offer.ShouldContain("отменяется автоматически через 60 мин.");
+            offer.ShouldContain("3.2. Оплата — переводом криптовалюты на странице платёжного сервиса.");
             (await client.GetStringAsync("/privacy")).ShouldContain("<h1>Политика обработки персональных данных</h1>");
         }
 
@@ -91,6 +93,16 @@ namespace Mendeleev.IntegrationTests
             OptionsValidationException exception = Should.Throw<OptionsValidationException>(() => host.CreateClient());
 
             exception.Message.ShouldContain("Site:SupportEmail is required in Production when Payments:Enabled");
+        }
+
+        [Fact]
+        public void InProduction_TryBitTestInvoices_StopTheStart()
+        {
+            // A test invoice is confirmed in TryBit's dashboard without any payment: it must buy nothing in production.
+            using var host = new BareProductionHost(("Site:SupportEmail", "support@site.test"), ("Payments:TryBit:AcceptTestInvoices", "true"));
+
+            Should.Throw<OptionsValidationException>(() => host.CreateClient())
+                .Message.ShouldContain("Payments:TryBit:AcceptTestInvoices is allowed only in Development and Staging");
         }
 
         /// <summary>
@@ -161,17 +173,20 @@ namespace Mendeleev.IntegrationTests
         private static IWebHostBuilder TakingPaymentsInProduction(IWebHostBuilder builder) => builder
             .UseEnvironment("Production")
             .UseSetting("Payments:Enabled", "true")
-            .UseSetting("Payments:ActiveProvider", "lava")
-            .UseSetting("Payments:Lava:Enabled", "true")
-            .UseSetting("Payments:Lava:ShopId", "shop")
-            .UseSetting("Payments:Lava:SecretKey", "secret")
-            .UseSetting("Payments:Lava:WebhookKey", "webhook");
+            .UseSetting("Payments:ActiveProvider", "trybit")
+            .UseSetting("Payments:TryBit:Enabled", "true")
+            .UseSetting("Payments:TryBit:ShopId", "shop")
+            .UseSetting("Payments:TryBit:ApiKey", "api-key")
+            .UseSetting("Payments:TryBit:SecretKey", "secret");
 
         [GeneratedRegex("href=\"([^\"]*)\"")]
         private static partial Regex LinkRegex();
 
-        /// <summary>Production taking payments, the support email left empty as in appsettings.json, no database: it must fail first.</summary>
-        private sealed class BareProductionHost : WebApplicationFactory<Web.Program>
+        /// <summary>
+        /// Production taking payments, the support email left empty as in appsettings.json unless <paramref name="settings"/>
+        /// say otherwise, no database: it must fail first.
+        /// </summary>
+        private sealed class BareProductionHost(params (string Key, string Value)[] settings) : WebApplicationFactory<Web.Program>
         {
             protected override void ConfigureWebHost(IWebHostBuilder builder)
             {
@@ -180,6 +195,10 @@ namespace Mendeleev.IntegrationTests
                 builder.UseSetting("Accounts:KeyPepper", Convert.ToBase64String(new byte[32]));
                 builder.UseSetting("Remnawave:UseInMemory", "true");
                 builder.UseSetting("Jobs:Enabled", "false");
+                foreach ((string key, string value) in settings)
+                {
+                    builder.UseSetting(key, value);
+                }
             }
         }
     }

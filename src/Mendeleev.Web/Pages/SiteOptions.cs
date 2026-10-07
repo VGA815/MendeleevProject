@@ -2,8 +2,8 @@ namespace Mendeleev.Web.Pages
 {
     /// <summary>
     /// Support contacts on the public pages (ТЗ 27, «Публичные страницы»). The seller's name, requisites and address
-    /// are not published (decision of 05.10.2026); the aggregator's moderation looks for a phone and an email
-    /// (lava.ru/site-requirements).
+    /// are not published (decision of 05.10.2026); the aggregator's moderation looks for working contacts: an email,
+    /// a phone, messengers (TryBit, «Requirements and Restrictions»).
     /// </summary>
     public sealed class SiteOptions
     {

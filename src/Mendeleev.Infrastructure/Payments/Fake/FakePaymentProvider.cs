@@ -17,7 +17,7 @@ namespace Mendeleev.Infrastructure.Payments.Fake
         /// <summary>Registers the provider and the dev payment page. Never in production.</summary>
         public bool Enabled { get; init; }
 
-        /// <summary>HMAC key of the fake webhooks — the same shape as Lava's and Enot.io's signature.</summary>
+        /// <summary>HMAC key of the fake webhooks, the usual shape of an aggregator's signature.</summary>
         public string WebhookSecret { get; init; } = "fake-webhook-secret";
     }
 
