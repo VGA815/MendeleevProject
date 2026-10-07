@@ -89,6 +89,14 @@ BotContent:
     TariffsPromo: "Промокод <b>{code}</b>: скидка {percent}%, цены уже со скидкой."
     PaymentDiscount: "Скидка по промокоду <b>{code}</b>: {full} ₽ → {amount} ₽."
     PaymentPromoDropped: "Промокод <b>{code}</b> больше не действует, поэтому цена — без скидки."
+    PaymentsHeader: "<b>Платежи</b>"
+    PaymentsEmpty: "Платежей пока нет."
+    PaymentHistoryLine: "• {date} — {tariff}, {amount} ₽ — {status}"
+    PaymentHistoryPromo: "промокод {code}"
+    PaymentHistoryManual: "оплата вне системы"
+    PaymentStatusSucceeded: "оплачен"
+    PaymentStatusRefunded: "возвращён"
+    PaymentStatusPending: "ждёт оплаты"
 
   Buttons:
     MySubscription: "📄 Моя подписка"
@@ -116,6 +124,7 @@ BotContent:
     HowToUpdate: "Как обновить подписку"
     Tariffs: "Тарифы"
     Promo: "🎟 Ввести промокод"
+    Payments: "🧾 Платежи"
 
   Notifications:
     AccessIssued: |-
@@ -142,6 +151,8 @@ BotContent:
     Incident: "Часть серверов недоступна. Обновите подписку в приложении."
     AccessPending: "Оплата получена ✅ Доступ активируется в течение нескольких минут — напишем, когда всё будет готово."
     PromoBonus: "🎁 Подписка продлена по промокоду до {date} (МСК)."
+    RefundEnded: "Возврат оформлен, подписка завершена. Если это ошибка — напишите в поддержку."
+    RefundShortened: "Возврат ошибочного платежа оформлен. Подписка действует до {date} (МСК)."
 
   Platforms:
     - Id: "android"

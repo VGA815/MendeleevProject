@@ -6,6 +6,7 @@ using Mendeleev.Application.Devices.GetDevices;
 using Mendeleev.Application.Devices.ResetDevices;
 using Mendeleev.Application.Payments.Check;
 using Mendeleev.Application.Payments.Create;
+using Mendeleev.Application.Payments.History;
 using Mendeleev.Application.Promos;
 using Mendeleev.Application.Subscriptions.GetSubscription;
 using Mendeleev.Application.Subscriptions.Trial;
@@ -36,6 +37,7 @@ namespace Mendeleev.Web.Bot.Handlers
         ICommandHandler<ResetDevicesCommand, DevicesResetResult> resetDevices,
         ICommandHandler<IssueAccountKeyCommand, string> issueKey,
         ICommandHandler<IssueLinkCodeCommand, IssuedLinkCode> issueLinkCode,
+        IQueryHandler<GetPaymentHistoryQuery, IReadOnlyList<PaymentHistoryItem>> getPayments,
         ConversationStore conversations)
     {
         /// <summary><c>t.me/&lt;бот&gt;?start=promo_&lt;код&gt;</c> (FR-BOT-20); <c>ref_</c> comes with stage 2.</summary>
@@ -75,7 +77,7 @@ namespace Mendeleev.Web.Bot.Handlers
                 await responder.ShowAsync(
                     context,
                     C.Text("SubscriptionNone"),
-                    Keyboards.Of([Keyboards.Callback(C.Button("Buy"), Cb.Buy)], Keyboards.BackToMenu(C)),
+                    Keyboards.Of([Keyboards.Callback(C.Button("Buy"), Cb.Buy)], [Keyboards.Callback(C.Button("Payments"), Cb.Payments)], Keyboards.BackToMenu(C)),
                     cancellationToken);
                 return;
             }
@@ -116,10 +118,49 @@ namespace Mendeleev.Web.Bot.Handlers
                 rows.Add([Keyboards.Copy(C.Button("CopyLink"), url), Keyboards.Callback(C.Button("Qr"), Cb.Qr)]);
                 rows.Add([Keyboards.Callback(C.Button("Connect"), Cb.Connect)]);
             }
-            rows.Add([Keyboards.Callback(C.Button("Renew"), Cb.Buy)]);
+            rows.Add([Keyboards.Callback(C.Button("Renew"), Cb.Buy), Keyboards.Callback(C.Button("Payments"), Cb.Payments)]);
             rows.Add(Keyboards.BackToMenu(C));
 
             await responder.ShowAsync(context, string.Join("\n\n", text), Keyboards.Of(rows), cancellationToken);
+        }
+
+        /// <summary>The user's payments (FR-PAY-17).</summary>
+        public async Task PaymentsAsync(BotContext context, CancellationToken cancellationToken)
+        {
+            IReadOnlyList<PaymentHistoryItem> payments = (await getPayments.Handle(new GetPaymentHistoryQuery(context.UserId), cancellationToken)).Value;
+
+            var lines = new List<string> { C.Text("PaymentsHeader") };
+            if (payments.Count == 0)
+            {
+                lines.Add(C.Text("PaymentsEmpty"));
+            }
+            foreach (PaymentHistoryItem payment in payments)
+            {
+                string status = payment.Status switch
+                {
+                    PaymentStatus.Succeeded => C.Text("PaymentStatusSucceeded"),
+                    PaymentStatus.Refunded => C.Text("PaymentStatusRefunded"),
+                    _ => C.Text("PaymentStatusPending"),
+                };
+                if (payment.PromoCode is string promo)
+                {
+                    status += ", " + TextRenderer.Render(C.Text("PaymentHistoryPromo"), ("code", promo));
+                }
+                if (payment.Manual)
+                {
+                    status += ", " + C.Text("PaymentHistoryManual");
+                }
+
+                // The status is content with markup, not data: it is added after the values are encoded.
+                lines.Add(TextRenderer.Render(C.Text("PaymentHistoryLine"), ("date", payment.At), ("tariff", payment.TariffName), ("amount", payment.Amount))
+                    .Replace("{status}", status, StringComparison.Ordinal));
+            }
+
+            await responder.ShowAsync(
+                context,
+                string.Join("\n", lines),
+                Keyboards.Of([Keyboards.Callback(C.Button("Back"), Cb.Subscription)], Keyboards.BackToMenu(C)),
+                cancellationToken);
         }
 
         /// <param name="lead">Replaces the usual header, e.g. «промокод принят».</param>

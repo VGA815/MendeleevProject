@@ -18,6 +18,10 @@ namespace Mendeleev.Domain.Audit
         public const string StaffEnable = "staff.enable";
         public const string PromoCreate = "promo.create";
         public const string PromoDeactivate = "promo.deactivate";
+        public const string PaymentRefund = "payment.refund";
+        public const string PaymentProviderSwitch = "payments.provider_switch";
+        public const string TariffPrice = "tariff.price";
+        public const string TariffActivity = "tariff.activity";
 
         public const string PanelDriftFixed = "panel.drift_fixed";
         public const string PanelUserDeleted = "panel.user_deleted";

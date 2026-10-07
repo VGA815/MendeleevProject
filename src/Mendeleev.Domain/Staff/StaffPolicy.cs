@@ -20,6 +20,9 @@ namespace Mendeleev.Domain.Staff
             StaffPermission.ViewTariffs => role is StaffRole.Admin or StaffRole.TechAdmin,
             StaffPermission.RecordManualPayments => role is StaffRole.Admin or StaffRole.TechAdmin,
             StaffPermission.ManagePromos => role is StaffRole.Admin or StaffRole.TechAdmin,
+            StaffPermission.RefundPayments => role is StaffRole.Admin or StaffRole.TechAdmin,
+            StaffPermission.SwitchAggregator => role is StaffRole.Admin or StaffRole.TechAdmin,
+            StaffPermission.ManageTariffs => role is StaffRole.Admin or StaffRole.TechAdmin,
             _ => false,
         };
 

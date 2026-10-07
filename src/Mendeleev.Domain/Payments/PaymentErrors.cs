@@ -35,5 +35,21 @@ namespace Mendeleev.Domain.Payments
         public static readonly Error ManualForBlockedUser = Error.Conflict(
             "Payments.ManualForBlockedUser",
             "Пользователь заблокирован: сначала разблокируйте его, потом записывайте оплату.");
+
+        public static readonly Error NotRefundable = Error.Conflict(
+            "Payments.NotRefundable",
+            "Возврат отмечается только у оплаченного платежа.");
+
+        public static readonly Error AlreadyRefunded = Error.Conflict(
+            "Payments.AlreadyRefunded",
+            "Возврат по этому платежу уже отмечен.");
+
+        public static readonly Error ProviderNotSwitchedOn = Error.Problem(
+            "Payments.ProviderNotSwitchedOn",
+            "Этот агрегатор не подключён: его включает техадмин в настройках сервиса.");
+
+        public static readonly Error ProviderAlreadyActive = Error.Conflict(
+            "Payments.ProviderAlreadyActive",
+            "Этот агрегатор уже основной.");
     }
 }

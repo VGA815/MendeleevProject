@@ -19,5 +19,21 @@ namespace Mendeleev.Domain.Tariffs
         public static readonly Error TrialTariffMissing = Error.Problem(
             "Tariffs.TrialTariffMissing",
             "Пробный период сейчас недоступен.");
+
+        public static readonly Error TrialIsFree = Error.Validation(
+            "Tariffs.TrialIsFree",
+            "Пробный период бесплатный: цену у него не меняют.");
+
+        public static readonly Error InvalidPrice = Error.Validation(
+            "Tariffs.InvalidPrice",
+            "Цена — целое число рублей от 1 до 1 000 000.");
+
+        public static readonly Error AlreadyActive = Error.Conflict(
+            "Tariffs.AlreadyActive",
+            "Тариф уже включён.");
+
+        public static readonly Error AlreadyInactive = Error.Conflict(
+            "Tariffs.AlreadyInactive",
+            "Тариф уже выключен.");
     }
 }

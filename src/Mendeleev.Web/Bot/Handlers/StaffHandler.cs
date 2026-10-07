@@ -60,7 +60,8 @@ namespace Mendeleev.Web.Bot.Handlers
         ICommandHandler<DeactivatePromoCodeCommand> deactivatePromo,
         IQueryHandler<ListPromoCodesQuery, IReadOnlyList<PromoCodeView>> listPromos,
         IQueryHandler<GetPromoCodeQuery, PromoCodeDetails> getPromo,
-        IOptions<ServiceOptions> serviceOptions)
+        IOptions<ServiceOptions> serviceOptions,
+        StaffPaymentsHandler payments)
     {
         private const string PromoUsage =
             "<code>/promos new КОД 20%</code> — скидка на оплату, от 1 до 99 %\n" +
@@ -130,10 +131,16 @@ namespace Mendeleev.Web.Bot.Handlers
                 adminRow.Add(Keyboards.Callback("Аудит", $"s:a:{card.UserId}"));
             }
             rows.Add([.. adminRow]);
+            var paymentsRow = new List<InlineKeyboardButton>();
             if (staff.Can(StaffPermission.RecordManualPayments))
             {
-                rows.Add([Keyboards.Callback("Оплата вне системы", $"s:m:{card.UserId}")]);
+                paymentsRow.Add(Keyboards.Callback("Оплата вне системы", $"s:m:{card.UserId}"));
             }
+            if (staff.Can(StaffPermission.RefundPayments) && card.Payments.Any(p => p.Status == PaymentStatus.Succeeded))
+            {
+                paymentsRow.Add(Keyboards.Callback("Возврат", $"rf:u:{card.UserId}"));
+            }
+            rows.Add([.. paymentsRow]);
             rows.Add([Keyboards.Callback("Обновить", $"s:c:{card.UserId}")]);
 
             await responder.ShowAsync(context, RenderCard(card), Keyboards.Of(rows), cancellationToken);
@@ -416,6 +423,10 @@ namespace Mendeleev.Web.Bot.Handlers
                     await ManualPaymentInputAsync(context, payerId, tariffCode, text, cancellationToken);
                     return true;
 
+                case ConversationKinds.RefundReason when conversation is { PaymentId: Guid paymentId } && Enum.TryParse(conversation.Option, out RefundKind kind):
+                    await payments.RefundReasonAsync(context, paymentId, kind, text, cancellationToken);
+                    return true;
+
                 case ConversationKinds.BroadcastText when Enum.TryParse(conversation.Segment, out BroadcastSegment segment):
                     await CreateBroadcastAsync(context, segment, text, conversation.Incident, cancellationToken);
                     return true;
@@ -608,26 +619,6 @@ namespace Mendeleev.Web.Bot.Handlers
                 string details = e.Details is { Length: > 0 } d ? $"\n  <code>{TextRenderer.Encode(d.Length > 200 ? d[..200] + "…" : d)}</code>" : string.Empty;
                 text.Append($"{TextRenderer.FormatDate(e.CreatedAt)} {who}: {TextRenderer.Encode(e.Action)}{target}{details}\n");
             }
-
-            await responder.SendAsync(context.ChatId, text.ToString(), null, cancellationToken);
-        }
-
-        public async Task TariffsAsync(BotContext context, CancellationToken cancellationToken)
-        {
-            Result<IReadOnlyList<TariffAdminView>> result = await listTariffs.Handle(new ListTariffsQuery(context.Staff!.StaffId), cancellationToken);
-            if (result.IsFailure)
-            {
-                await responder.SendAsync(context.ChatId, TextRenderer.Encode(result.Error.Description), null, cancellationToken);
-                return;
-            }
-
-            var text = new StringBuilder("<b>Тарифы</b>\n");
-            foreach (TariffAdminView t in result.Value)
-            {
-                string traffic = t.TrafficLimitBytes is long bytes ? TextRenderer.FormatBytes(bytes) : "без лимита";
-                text.Append(CultureInfo.InvariantCulture, $"<code>{t.Code}</code> {TextRenderer.Encode(t.Name)} — {TextRenderer.Encode(t.Price)} ₽, {t.PeriodDays} дн., {t.DeviceLimit} устр., {traffic}{(t.IsActive ? string.Empty : " (выключен)")}\n");
-            }
-            text.Append("\nЦены меняет техадмин в БД по заявке админа; команда для этого — на этапе 1.5.");
 
             await responder.SendAsync(context.ChatId, text.ToString(), null, cancellationToken);
         }

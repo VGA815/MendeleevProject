@@ -1,5 +1,6 @@
 using Mendeleev.Domain.Audit;
 using Mendeleev.Domain.Broadcasts;
+using Mendeleev.Domain.Common;
 using Mendeleev.Domain.Devices;
 using Mendeleev.Domain.Notifications;
 using Mendeleev.Domain.Payments;
@@ -30,6 +31,7 @@ namespace Mendeleev.Application.Abstractions.Data
         DbSet<LinkCode> LinkCodes { get; }
         DbSet<PromoCode> PromoCodes { get; }
         DbSet<PromoRedemption> PromoRedemptions { get; }
+        DbSet<ServiceSetting> Settings { get; }
 
         /// <summary>
         /// Saves the changes and, in the same transaction, the domain events raised by the tracked

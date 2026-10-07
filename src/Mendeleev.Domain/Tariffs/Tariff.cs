@@ -1,3 +1,5 @@
+using Mendeleev.SharedKernel;
+
 namespace Mendeleev.Domain.Tariffs
 {
     /// <summary>
@@ -73,5 +75,36 @@ namespace Mendeleev.Domain.Tariffs
 
         /// <summary>Price per 30 days, for the "≈ N ₽/мес" hint on 3- and 12-month tariffs.</summary>
         public decimal MonthlyEquivalent => PeriodDays <= 30 ? Price : Math.Round(Price / PeriodDays * 30m, 0);
+
+        /// <summary>
+        /// FR-ADM-14: a new price in whole rubles. Payments already created keep their amount and days
+        /// (ТЗ 22, «Правило продления»). The trial is free.
+        /// </summary>
+        public Result ChangePrice(decimal price)
+        {
+            if (IsTrial)
+            {
+                return Result.Failure(TariffErrors.TrialIsFree);
+            }
+            if (price is < 1m or > 1_000_000m || price != decimal.Truncate(price))
+            {
+                return Result.Failure(TariffErrors.InvalidPrice);
+            }
+
+            Price = price;
+            return Result.Success();
+        }
+
+        /// <summary>FR-ADM-14: an inactive tariff leaves the menu; subscriptions and created payments keep it (ТЗ 22).</summary>
+        public Result SetActive(bool isActive)
+        {
+            if (IsActive == isActive)
+            {
+                return Result.Failure(isActive ? TariffErrors.AlreadyActive : TariffErrors.AlreadyInactive);
+            }
+
+            IsActive = isActive;
+            return Result.Success();
+        }
     }
 }

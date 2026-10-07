@@ -6,5 +6,8 @@ namespace Mendeleev.Domain.Subscriptions
 
         /// <summary>The trial used up its traffic limit.</summary>
         Traffic = 1,
+
+        /// <summary>The payment was refunded (FR-PAY-16).</summary>
+        Refund = 2,
     }
 }

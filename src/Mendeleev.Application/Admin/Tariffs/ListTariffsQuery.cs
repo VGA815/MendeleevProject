@@ -8,8 +8,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Mendeleev.Application.Admin.Tariffs
 {
     /// <summary>
-    /// <c>/tariffs</c>: current tariffs and prices. In the MVP prices are changed by the tech admin in the
-    /// database on the admin's request; a command for it comes in stage 1.5 (FR-ADM-14).
+    /// <c>/tariffs</c>: current tariffs and prices; admins change them with <c>/tariffs price</c> and
+    /// <c>/tariffs on|off</c> (FR-ADM-14, <see cref="ChangeTariffPriceCommand"/>).
     /// </summary>
     public sealed record ListTariffsQuery(long StaffId) : IQuery<IReadOnlyList<TariffAdminView>>;
 

@@ -15,5 +15,8 @@ namespace Mendeleev.Domain.Staff
         ViewTariffs,
         RecordManualPayments,
         ManagePromos,
+        RefundPayments,
+        SwitchAggregator,
+        ManageTariffs,
     }
 }

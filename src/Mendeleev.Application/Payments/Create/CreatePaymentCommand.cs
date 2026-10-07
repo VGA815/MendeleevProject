@@ -6,7 +6,8 @@ namespace Mendeleev.Application.Payments.Create
     /// <summary>
     /// «Оплатить»: a payment at the aggregator for the chosen tariff (FR-PAY-01), with the discount of the promo
     /// code the user entered (FR-PAY-15). An unpaid payment for the same tariff and code is shown again instead of
-    /// a new one; at most 5 payments an hour per user (FR-PAY-10).
+    /// a new one; at most 5 payments an hour per user (FR-PAY-10). If the active aggregator refuses to create the
+    /// invoice, the next switched-on one gets the same payment (FR-PAY-14).
     /// </summary>
     public sealed record CreatePaymentCommand(long UserId, string TariffCode) : ICommand<PaymentLink>;
 

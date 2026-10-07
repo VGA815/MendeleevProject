@@ -157,6 +157,7 @@ namespace Mendeleev.Web
             services.AddScoped<BotResponder>();
             services.AddScoped<UserHandler>();
             services.AddScoped<StaffHandler>();
+            services.AddScoped<StaffPaymentsHandler>();
             services.AddScoped<UpdateRouter>();
 
             services.AddHostedService<BotUpdateWorker>();

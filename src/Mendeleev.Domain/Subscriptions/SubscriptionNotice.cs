@@ -16,5 +16,11 @@ namespace Mendeleev.Domain.Subscriptions
 
         /// <summary>Bonus days of a promo code were added (FR-SUB-15).</summary>
         PromoBonus = 7,
+
+        /// <summary>A refund ended the access (FR-PAY-16).</summary>
+        RefundEnded = 8,
+
+        /// <summary>A refund of an erroneous payment took its days away (FR-PAY-16).</summary>
+        RefundShortened = 9,
     }
 }

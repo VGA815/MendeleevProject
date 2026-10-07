@@ -18,5 +18,8 @@ namespace Mendeleev.Domain.Payments
         ReconciliationMismatch = 13,
         AppliedToBlockedUser = 14,
         RecordedManually = 15,
+
+        /// <summary>The aggregator refused to create the invoice; the payment went to the next one (FR-PAY-14).</summary>
+        ProviderFallback = 16,
     }
 }

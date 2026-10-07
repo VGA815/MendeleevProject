@@ -70,6 +70,8 @@ namespace Mendeleev.Application.Subscriptions
                 SubscriptionNotice.Expired => NotificationKind.Expired,
                 SubscriptionNotice.TrafficExhausted => NotificationKind.TrialTrafficExhausted,
                 SubscriptionNotice.PromoBonus => NotificationKind.PromoBonus,
+                SubscriptionNotice.RefundEnded => NotificationKind.RefundEnded,
+                SubscriptionNotice.RefundShortened => NotificationKind.RefundShortened,
                 _ => null,
             };
             if (kind is null)

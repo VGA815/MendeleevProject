@@ -19,5 +19,11 @@ namespace Mendeleev.Domain.Notifications
 
         /// <summary>Bonus days of a promo code reached the panel (FR-SUB-15).</summary>
         PromoBonus = 11,
+
+        /// <summary>A refund was marked and the access ended (FR-PAY-16).</summary>
+        RefundEnded = 12,
+
+        /// <summary>A refund of an erroneous payment was marked and the term got shorter (FR-PAY-16).</summary>
+        RefundShortened = 13,
     }
 }

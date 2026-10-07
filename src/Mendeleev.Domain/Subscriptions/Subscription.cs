@@ -255,6 +255,34 @@ namespace Mendeleev.Domain.Subscriptions
         }
 
         /// <summary>
+        /// A refund marked by an admin (FR-PAY-16; решение 07.10 — как в оферте). <paramref name="daysToRemove"/>
+        /// null: the unused days were returned (п. 6.3) and access ends now. Otherwise the payment was erroneous or
+        /// duplicate (п. 6.2): the term loses those days, but never ends before now. The term never grows; an
+        /// expired or archived subscription is left as it is; a disabled one only gets the shorter term.
+        /// </summary>
+        /// <returns>False when there was nothing to take back.</returns>
+        public bool ApplyRefund(int? daysToRemove, string noticeKey, DateTime utcNow)
+        {
+            if (Status is SubscriptionStatus.Expired or SubscriptionStatus.Archived || ExpiresAt <= utcNow)
+            {
+                return false;
+            }
+
+            DateTime target = daysToRemove is int days ? Later(utcNow, ExpiresAt.AddDays(-days)) : utcNow;
+            ExpiresAt = target < ExpiresAt ? target : ExpiresAt;
+
+            bool ended = ExpiresAt <= utcNow;
+            if (ended && GrantsAccess)
+            {
+                Status = SubscriptionStatus.Expired;
+                ExpiredReason = Subscriptions.ExpiredReason.Refund;
+            }
+
+            Changed(ended ? SubscriptionNotice.RefundEnded : SubscriptionNotice.RefundShortened, noticeKey, utcNow);
+            return true;
+        }
+
+        /// <summary>
         /// Moves a trial or active subscription to <see cref="SubscriptionStatus.Expired"/>: by time once the
         /// term is over (FR-SUB-06), or by traffic when the panel reports that the trial ran out of its 10 GB.
         /// </summary>

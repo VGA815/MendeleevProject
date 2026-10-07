@@ -76,74 +76,96 @@ namespace Mendeleev.Application.Payments.Create
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync(cancellationToken);
 
-            Payment? reusable = recent.FirstOrDefault(p => p.IsReusable(tariff.Id, promo?.Id, TimeSpan.FromMinutes(options.ReuseWithinMinutes), now));
+            // FR-PAY-14: the active aggregator first, the others to fall back to. An unpaid payment is shown again only if
+            // it is at the active one: after a switch away from a failing aggregator, its links are not handed out.
+            IReadOnlyList<IPaymentProvider> candidates = await PaymentProviderSelection.CandidatesAsync(db, providers, cancellationToken);
+            Payment? reusable = recent.FirstOrDefault(p =>
+                string.Equals(p.Provider, candidates[0].Code, StringComparison.OrdinalIgnoreCase)
+                && p.IsReusable(tariff.Id, promo?.Id, TimeSpan.FromMinutes(options.ReuseWithinMinutes), now));
             if (reusable is not null)
             {
                 return Link(reusable, tariff, promo, reused: true, droppedCode);
             }
 
-            if (recent.Count >= options.MaxCreatesPerHour)
+            // Invoices the aggregators refused to create do not count against the limit (FR-PAY-10).
+            if (recent.Count(p => p.Status != PaymentStatus.Failed) >= options.MaxCreatesPerHour)
             {
                 return PaymentErrors.TooManyPayments;
             }
 
-            IPaymentProvider provider = providers.Active;
-            var payment = Payment.Create(user.Id, tariff, provider.Code, now, promo?.Id, promo is null ? null : amount);
+            var payment = Payment.Create(user.Id, tariff, candidates[0].Code, now, promo?.Id, promo is null ? null : amount);
             db.Payments.Add(payment);
             db.PaymentEvents.Add(PaymentEvent.Create(
                 payment.Id,
-                provider.Code,
+                payment.Provider,
                 PaymentEventKind.Created,
                 Json.Serialize(new { tariff = tariff.Code, amount = payment.Amount, promo = promo?.Code }),
                 now));
             await db.SaveChangesAsync(cancellationToken);
 
-            CreatedPayment created;
-            try
-            {
-                created = await provider.CreateAsync(
-                    new CreatePaymentRequest(
-                        payment.Id,
-                        payment.Amount,
-                        payment.Currency,
-                        options.DescriptionTemplate.Replace("{tariff}", tariff.Name, StringComparison.Ordinal),
-                        // In the path, not in a query string, which some aggregators refuse. TryBit takes no address per
-                        // payment at all: the project's own is /pay/return, and the cabinet finds the payment there.
-                        $"{serviceOptions.Value.SiteBaseUrl}/pay/return/{payment.Id}",
-                        user.Email),
-                    cancellationToken);
-            }
-            catch (PaymentProviderException ex)
-            {
-                logger.LogWarning(ex, "Payment provider {Provider} failed to create payment {PaymentId}", provider.Code, payment.Id);
+            var request = new CreatePaymentRequest(
+                payment.Id,
+                payment.Amount,
+                payment.Currency,
+                options.DescriptionTemplate.Replace("{tariff}", tariff.Name, StringComparison.Ordinal),
+                // In the path, not in a query string, which some aggregators refuse. TryBit takes no address per
+                // payment at all: the project's own is /pay/return, and the cabinet finds the payment there.
+                $"{serviceOptions.Value.SiteBaseUrl}/pay/return/{payment.Id}",
+                user.Email);
 
-                payment.MarkCreationFailed(clock.UtcNow);
-                db.PaymentEvents.Add(PaymentEvent.Create(payment.Id, provider.Code, PaymentEventKind.ProviderError, Json.Serialize(new { error = ex.Message }), clock.UtcNow));
+            foreach (IPaymentProvider provider in candidates)
+            {
+                if (!string.Equals(payment.Provider, provider.Code, StringComparison.OrdinalIgnoreCase))
+                {
+                    // FR-PAY-14: the previous aggregator refused, the same payment goes to the next one.
+                    db.PaymentEvents.Add(PaymentEvent.Create(payment.Id, provider.Code, PaymentEventKind.ProviderFallback, Json.Serialize(new { from = payment.Provider }), clock.UtcNow));
+                    payment.SwitchProvider(provider.Code, clock.UtcNow);
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+
+                CreatedPayment created;
+                try
+                {
+                    created = await provider.CreateAsync(request, cancellationToken);
+                }
+                catch (PaymentProviderException ex)
+                {
+                    await RecordProviderErrorAsync(payment, provider, ex, cancellationToken);
+                    continue;
+                }
+
+                payment.MarkPending(created.ProviderPaymentId, created.ConfirmationUrl, created.ExpiresAt, clock.UtcNow);
+                db.PaymentEvents.Add(PaymentEvent.Create(payment.Id, provider.Code, PaymentEventKind.ProviderCreated, Json.Serialize(new { providerPaymentId = created.ProviderPaymentId }), clock.UtcNow));
                 await db.SaveChangesAsync(cancellationToken);
 
                 AppMetrics.Payments.Add(1,
-                    new KeyValuePair<string, object?>("status", "create_failed"),
+                    new KeyValuePair<string, object?>("status", "pending"),
                     new KeyValuePair<string, object?>("provider", provider.Code));
 
-                // ТЗ 23: alert when there are more than 3 errors in 10 minutes.
-                await alerts.RaiseOnSeriesAsync(
-                    new Alert(AlertSeverity.Critical, $"payment-create-failed:{provider.Code}", $"Агрегатор {provider.Code} не создаёт платежи: {ex.Message}"),
-                    threshold: 4,
-                    window: TimeSpan.FromMinutes(10),
-                    cancellationToken);
-
-                return PaymentErrors.ProviderUnavailable;
+                return Link(payment, tariff, promo, reused: false, droppedCode);
             }
 
-            payment.MarkPending(created.ProviderPaymentId, created.ConfirmationUrl, created.ExpiresAt, clock.UtcNow);
-            db.PaymentEvents.Add(PaymentEvent.Create(payment.Id, provider.Code, PaymentEventKind.ProviderCreated, Json.Serialize(new { providerPaymentId = created.ProviderPaymentId }), clock.UtcNow));
+            return PaymentErrors.ProviderUnavailable;
+        }
+
+        private async Task RecordProviderErrorAsync(Payment payment, IPaymentProvider provider, PaymentProviderException ex, CancellationToken cancellationToken)
+        {
+            logger.LogWarning(ex, "Payment provider {Provider} failed to create payment {PaymentId}", provider.Code, payment.Id);
+
+            payment.MarkCreationFailed(clock.UtcNow);
+            db.PaymentEvents.Add(PaymentEvent.Create(payment.Id, provider.Code, PaymentEventKind.ProviderError, Json.Serialize(new { error = ex.Message }), clock.UtcNow));
             await db.SaveChangesAsync(cancellationToken);
 
             AppMetrics.Payments.Add(1,
-                new KeyValuePair<string, object?>("status", "pending"),
+                new KeyValuePair<string, object?>("status", "create_failed"),
                 new KeyValuePair<string, object?>("provider", provider.Code));
 
-            return Link(payment, tariff, promo, reused: false, droppedCode);
+            // ТЗ 23: alert when there are more than 3 errors in 10 minutes.
+            await alerts.RaiseOnSeriesAsync(
+                new Alert(AlertSeverity.Critical, $"payment-create-failed:{provider.Code}", $"Агрегатор {provider.Code} не создаёт платежи: {ex.Message}"),
+                threshold: 4,
+                window: TimeSpan.FromMinutes(10),
+                cancellationToken);
         }
 
         private static PaymentLink Link(Payment payment, Tariff tariff, PromoCode? promo, bool reused, string? droppedCode) =>

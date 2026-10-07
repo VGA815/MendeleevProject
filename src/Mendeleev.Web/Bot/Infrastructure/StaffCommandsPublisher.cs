@@ -23,6 +23,7 @@ namespace Mendeleev.Web.Bot.Infrastructure
             new() { Command = "sub", Description = "Моя подписка" },
             new() { Command = "buy", Description = "Купить или продлить" },
             new() { Command = "promo", Description = "Ввести промокод" },
+            new() { Command = "payments", Description = "Мои платежи" },
             new() { Command = "devices", Description = "Устройства" },
             new() { Command = "help", Description = "Помощь" },
             new() { Command = "key", Description = "Вход на сайт" },
@@ -92,6 +93,14 @@ namespace Mendeleev.Web.Bot.Infrastructure
             if (StaffPolicy.Allows(role, StaffPermission.ManagePromos))
             {
                 commands.Add(new() { Command = "promos", Description = "Промокоды" });
+            }
+            if (StaffPolicy.Allows(role, StaffPermission.RefundPayments))
+            {
+                commands.Add(new() { Command = "refund", Description = "Отметить возврат платежа" });
+            }
+            if (StaffPolicy.Allows(role, StaffPermission.SwitchAggregator))
+            {
+                commands.Add(new() { Command = "aggregator", Description = "Агрегаторы оплаты" });
             }
 
             commands.Add(new() { Command = "cancel", Description = "Отменить ввод" });

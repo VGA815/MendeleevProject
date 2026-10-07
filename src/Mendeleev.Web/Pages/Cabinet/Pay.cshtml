@@ -61,4 +61,24 @@ else
             <button type="submit" class="button secondary">Применить</button>
         </div>
     </form>
+    @if (Model.History.Count > 0)
+    {
+        <h2>История платежей</h2>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Дата (МСК)</th><th>Тариф</th><th>Сумма</th><th>Статус</th></tr></thead>
+                <tbody>
+                    @foreach (var item in Model.History)
+                    {
+                        <tr>
+                            <td>@Mendeleev.Web.Bot.Content.TextRenderer.FormatDate(item.At)</td>
+                            <td>@item.TariffName</td>
+                            <td>@item.Amount.ToString("N0", ru) ₽</td>
+                            <td>@Mendeleev.Web.Pages.Cabinet.PayModel.StatusText(item)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
 }

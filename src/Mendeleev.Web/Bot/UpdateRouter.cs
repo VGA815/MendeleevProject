@@ -4,6 +4,7 @@ using Mendeleev.Application.Accounts.SetBotBlocked;
 using Mendeleev.Application.Admin.Staff;
 using Mendeleev.Application.Admin.Stats;
 using Mendeleev.Domain.Broadcasts;
+using Mendeleev.Domain.Payments;
 using Mendeleev.Domain.Staff;
 using Mendeleev.SharedKernel;
 using Mendeleev.Web.Bot.Content;
@@ -26,6 +27,7 @@ namespace Mendeleev.Web.Bot
         ConversationStore conversations,
         UserHandler user,
         StaffHandler staff,
+        StaffPaymentsHandler staffPayments,
         IOptionsMonitor<BotContent> content,
         ICommandHandler<EnsureTelegramUserCommand, TelegramUserState> ensureUser,
         ICommandHandler<SetBotBlockedCommand> setBotBlocked,
@@ -112,6 +114,9 @@ namespace Mendeleev.Web.Bot
                 case "/promo":
                     await user.PromoAskAsync(context, cancellationToken);
                     break;
+                case "/payments":
+                    await user.PaymentsAsync(context, cancellationToken);
+                    break;
                 case "/sub":
                     await user.SubscriptionAsync(context, cancellationToken);
                     break;
@@ -157,7 +162,13 @@ namespace Mendeleev.Web.Bot
                     await staff.AuditAsync(context, arguments, cancellationToken);
                     return true;
                 case "/tariffs" when member.Can(StaffPermission.ViewTariffs):
-                    await staff.TariffsAsync(context, cancellationToken);
+                    await staffPayments.TariffsAsync(context, arguments, cancellationToken);
+                    return true;
+                case "/aggregator" when member.Can(StaffPermission.SwitchAggregator):
+                    await staffPayments.AggregatorAsync(context, cancellationToken);
+                    return true;
+                case "/refund" when member.Can(StaffPermission.RefundPayments):
+                    await staffPayments.RefundCommandAsync(context, arguments, cancellationToken);
                     return true;
                 case "/promos" when member.Can(StaffPermission.ManagePromos):
                     await staff.PromosAsync(context, arguments, cancellationToken);
@@ -192,7 +203,9 @@ namespace Mendeleev.Web.Bot
             string data = callback.Data!;
 
             if (data.StartsWith("s:", StringComparison.Ordinal) || data.StartsWith("bc:", StringComparison.Ordinal)
-                || data.StartsWith("st:", StringComparison.Ordinal) || data.StartsWith("pr:", StringComparison.Ordinal))
+                || data.StartsWith("st:", StringComparison.Ordinal) || data.StartsWith("pr:", StringComparison.Ordinal)
+                || data.StartsWith("rf:", StringComparison.Ordinal) || data.StartsWith("ag:", StringComparison.Ordinal)
+                || data.StartsWith("tf:", StringComparison.Ordinal))
             {
                 if (context.Staff is not null)
                 {
@@ -250,6 +263,9 @@ namespace Mendeleev.Web.Bot
                     break;
                 case Cb.Promo:
                     await user.PromoAskAsync(context, cancellationToken);
+                    break;
+                case Cb.Payments:
+                    await user.PaymentsAsync(context, cancellationToken);
                     break;
                 case var d when d.StartsWith(Cb.Tariff, StringComparison.Ordinal):
                     await user.ConfirmTariffAsync(context, d[Cb.Tariff.Length..], cancellationToken);
@@ -348,6 +364,30 @@ namespace Mendeleev.Web.Bot
                     break;
                 case ["pr", "off!", var code]:
                     await staff.PromoOffAsync(context, code, cancellationToken);
+                    break;
+                case ["rf", "u", var id] when long.TryParse(id, out long userId):
+                    await staffPayments.RefundPaymentsAsync(context, userId, cancellationToken);
+                    break;
+                case ["rf", "p", var id] when Guid.TryParseExact(id, "N", out Guid paymentId):
+                    await staffPayments.RefundPaymentAsync(context, paymentId, cancellationToken);
+                    break;
+                case ["rf", "k", var id, var kind] when Guid.TryParseExact(id, "N", out Guid paymentId) && kind is "u" or "e":
+                    await staffPayments.RefundKindChosenAsync(context, paymentId, kind == "u" ? RefundKind.UnusedDays : RefundKind.Erroneous, cancellationToken);
+                    break;
+                case ["rf", "ok", var token]:
+                    await staffPayments.RefundConfirmAsync(context, token, cancellationToken);
+                    break;
+                case ["ag", "list"]:
+                    await staffPayments.AggregatorAsync(context, cancellationToken);
+                    break;
+                case ["ag", "set", var code]:
+                    await staffPayments.AggregatorSwitchAskAsync(context, code, cancellationToken);
+                    break;
+                case ["ag", "set!", var code]:
+                    await staffPayments.AggregatorSwitchAsync(context, code, cancellationToken);
+                    break;
+                case ["tf", "ok", var token]:
+                    await staffPayments.TariffConfirmAsync(context, token, cancellationToken);
                     break;
                 default:
                     logger.LogDebug("Unknown staff callback");

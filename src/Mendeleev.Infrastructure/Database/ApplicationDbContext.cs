@@ -1,6 +1,7 @@
 using Mendeleev.Application.Abstractions.Data;
 using Mendeleev.Domain.Audit;
 using Mendeleev.Domain.Broadcasts;
+using Mendeleev.Domain.Common;
 using Mendeleev.Domain.Devices;
 using Mendeleev.Domain.Notifications;
 using Mendeleev.Domain.Payments;
@@ -52,6 +53,8 @@ namespace Mendeleev.Infrastructure.Database
         public DbSet<PromoCode> PromoCodes { get; set; }
 
         public DbSet<PromoRedemption> PromoRedemptions { get; set; }
+
+        public DbSet<ServiceSetting> Settings { get; set; }
 
         internal DbSet<OutboxMessage> OutboxMessages { get; set; }
 

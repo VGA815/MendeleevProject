@@ -190,6 +190,35 @@ namespace Mendeleev.Domain.Payments
             UpdatedAt = utcNow;
         }
 
+        /// <summary>An admin marks the payment refunded after returning the money (FR-PAY-16): only a paid one.</summary>
+        public Result Refund(DateTime utcNow)
+        {
+            if (Status != PaymentStatus.Succeeded)
+            {
+                return Result.Failure(Status == PaymentStatus.Refunded ? PaymentErrors.AlreadyRefunded : PaymentErrors.NotRefundable);
+            }
+
+            MarkRefunded(utcNow);
+            return Result.Success();
+        }
+
+        /// <summary>
+        /// The aggregator refused to create the invoice: the same payment goes to the next aggregator
+        /// (FR-PAY-14). Only before any aggregator has it — the idempotency key is still empty.
+        /// </summary>
+        public void SwitchProvider(string provider, DateTime utcNow)
+        {
+            if (ProviderPaymentId is not null || Status is not (PaymentStatus.Created or PaymentStatus.Failed))
+            {
+                throw new InvalidOperationException($"Payment {Id} is already at {Provider}.");
+            }
+
+            ArgumentException.ThrowIfNullOrWhiteSpace(provider);
+            Provider = provider;
+            Status = PaymentStatus.Created;
+            UpdatedAt = utcNow;
+        }
+
         public void FlagForReview(DateTime utcNow)
         {
             NeedsReview = true;
