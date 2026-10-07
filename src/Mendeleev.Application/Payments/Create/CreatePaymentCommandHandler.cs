@@ -88,7 +88,8 @@ namespace Mendeleev.Application.Payments.Create
                         payment.Amount,
                         payment.Currency,
                         options.DescriptionTemplate.Replace("{tariff}", tariff.Name, StringComparison.Ordinal),
-                        // In the path: Lava refuses return addresses with a query string.
+                        // In the path, not in a query string, which some aggregators refuse. TryBit takes no address per
+                        // payment at all: the project's own is /pay/return, and the cabinet finds the payment there.
                         $"{serviceOptions.Value.SiteBaseUrl}/pay/return/{payment.Id}",
                         user.Email),
                     cancellationToken);

@@ -8,6 +8,10 @@ namespace Mendeleev.Domain.Payments
             "Payments.NotFound",
             $"Платёж {paymentId} не найден.");
 
+        public static readonly Error NoRecentPayment = Error.NotFound(
+            "Payments.NoRecentPayment",
+            "За последние сутки платежей нет.");
+
         public static readonly Error PaymentsDisabled = Error.ServiceUnavailable(
             "Payments.Disabled",
             "Оплата пока недоступна. Напишите в поддержку — продлим подписку вручную.");

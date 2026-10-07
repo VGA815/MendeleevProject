@@ -128,10 +128,10 @@ namespace Mendeleev.IntegrationTests
         }
 
         [Fact]
-        public async Task ReturnFromTheAggregator_FindsThePayment_InThePathAndInTheOldQuery()
+        public async Task ReturnFromTheAggregator_FindsThePayment_ByThePath_TheOldQuery_OrAsTheLatest()
         {
-            // ТЗ 27: Lava refuses return addresses with a query string, so the payment id is in the path; the
-            // ?paymentId= links handed out before keep working.
+            // ТЗ 27: the payment id is in the path, and the ?paymentId= links handed out before keep working. TryBit
+            // returns everyone to the project's one address, /pay/return: a cabinet user is taken to the latest payment.
             using CabinetSite.Browser browser = _site.NewBrowser();
             await RegisterAsync(browser);
             Guid paymentId = await _site.WithDbAsync(async db =>
@@ -141,9 +141,11 @@ namespace Mendeleev.IntegrationTests
                 db.Tariffs.Add(tariff);
                 await db.SaveChangesAsync();
 
-                var payment = Payment.Create(user.Id, tariff, "lava", DateTime.UtcNow);
-                payment.MarkPending("inv-1", "https://pay.lava.ru/invoice/inv-1", DateTime.UtcNow.AddHours(1), DateTime.UtcNow);
-                db.Payments.Add(payment);
+                var older = Payment.Create(user.Id, tariff, "trybit", DateTime.UtcNow.AddMinutes(-30));
+                older.MarkPending("INV-OLDER000", "https://pay.trybit.com/OLDER000?lang=ru", DateTime.UtcNow.AddMinutes(30), DateTime.UtcNow.AddMinutes(-30));
+                var payment = Payment.Create(user.Id, tariff, "trybit", DateTime.UtcNow);
+                payment.MarkPending("INV-89UX09KA", "https://pay.trybit.com/89UX09KA?lang=ru", DateTime.UtcNow.AddHours(1), DateTime.UtcNow);
+                db.Payments.AddRange(older, payment);
                 await db.SaveChangesAsync();
                 return payment.Id;
             });
@@ -156,6 +158,16 @@ namespace Mendeleev.IntegrationTests
                 html.ShouldContain($"data-payment-id=\"{paymentId}\"");
                 html.ShouldContain($"href=\"/pay/return/{paymentId}\"");
             }
+
+            using HttpResponseMessage latest = await browser.GetAsync("/pay/return");
+            latest.StatusCode.ShouldBe(HttpStatusCode.Redirect);
+            latest.Headers.Location!.OriginalString.ShouldBe($"/pay/return/{paymentId}");
+
+            // A bot user has no cabinet session: the page fits both a payment and an expired invoice.
+            using CabinetSite.Browser guest = _site.NewBrowser("198.51.100.2");
+            using HttpResponseMessage general = await guest.GetAsync("/pay/return");
+            general.StatusCode.ShouldBe(HttpStatusCode.OK);
+            (await general.Content.ReadAsStringAsync()).ShouldContain("Если вы оплатили, подписка продлится автоматически");
         }
 
         [Fact]
