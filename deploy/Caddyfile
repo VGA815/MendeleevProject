@@ -4,6 +4,23 @@
 {
 	# Caddy is the edge: it does not trust X-Forwarded-For from clients; the app trusts Caddy's.
 	email {$ACME_EMAIL}
+
+	# Caddy's own log (docker logs) gets every request that failed in a handler, a 502 while app or
+	# subscription-page restarts for one, with its path (a user's secret on the subscription domains), client IP
+	# and headers. Docker keeps it by size, not for 7 days (ТЗ 31): only the error stays.
+	log default {
+		format filter {
+			wrap json
+			fields {
+				request>uri replace /***
+				request>remote_ip delete
+				request>remote_port delete
+				request>client_ip delete
+				request>headers delete
+				request>tls delete
+			}
+		}
+	}
 }
 
 (common) {

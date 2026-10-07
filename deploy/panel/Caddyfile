@@ -1,3 +1,22 @@
+{
+	# Caddy's own log (docker logs) gets every request that failed in a handler, a 502 while the panel restarts
+	# for one, with its path (a subscription request carries the user's shortUuid), client IP and headers.
+	# Only the error stays (ТЗ 31), as on the management VPS.
+	log default {
+		format filter {
+			wrap json
+			fields {
+				request>uri replace /***
+				request>remote_ip delete
+				request>remote_port delete
+				request>client_ip delete
+				request>headers delete
+				request>tls delete
+			}
+		}
+	}
+}
+
 # TLS for the panel API. PANEL_PORT is 443 on the panel VPS; on staging the panel shares the VPS with the node,
 # whose Xray holds 443, so the API moves to another port (docker-compose.staging.yml).
 {$PANEL_DOMAIN}:{$PANEL_PORT:443} {
