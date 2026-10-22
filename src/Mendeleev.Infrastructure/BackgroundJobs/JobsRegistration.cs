@@ -32,6 +32,7 @@ namespace Mendeleev.Infrastructure.BackgroundJobs
                 Every<CheckPendingPaymentsJob>(q, "15 */5 * ? * *");          // every 5 minutes (FR-PAY-07)
                 Every<ReconcilePanelJob>(q, "45 */10 * ? * *");               // every 10 minutes (FR-PNL-05)
                 Every<PanelAvailabilityJob>(q, "30 * * ? * *");               // every minute (ТЗ 24, «Панель недоступна дольше 5 минут»)
+                Every<NodeGuardJob>(q, "10 */5 * ? * *");                     // every 5 minutes (FR-NODE-18)
                 Every<InfrastructureCleanupJob>(q, "0 20 * ? * *");           // hourly
                 Every<ReconcilePaymentsJob>(q, "0 0 4 ? * *");                // 04:00 МСК (FR-PAY-06)
                 Every<RetentionCleanupJob>(q, "0 30 3 ? * *");                // 03:30 МСК

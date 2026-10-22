@@ -3,7 +3,8 @@
 
 Creates the Xray config profile from infra/xray/config-profile.example.json with fresh Reality keys, the squads
 basic and premium, the node on this same VPS with its two hosts, and the subscription settings (HWID limit,
-stubs, headers with the Happ routing profile); then writes the node SECRET_KEY into the node's Ansible host_vars.
+stubs, headers with the Happ routing profile, and Happ's autoconnect with --provider-id); then writes the node
+SECRET_KEY into the node's Ansible host_vars.
 Authenticates with a temporary full-access API token read from a file. Prints only names, UUIDs and statuses:
 the Reality private key and the node SECRET_KEY never leave the server.
 
@@ -14,14 +15,17 @@ the Reality private key and the node SECRET_KEY never leave the server.
 Steps (positional, default: profile subscription node-key): profile, subscription, node-key, status; sni,
 which moves the Reality inbounds of an existing profile to another site (--sni) when the current one stops
 answering the node: Reality takes every handshake from that site, so a site that blocks the node breaks all of
-them; node, which adds another node on another VPS to the existing profile: the node and its two hosts, tagged
-with the node name, in the subscriptions at once; and reserve, the same as a warm reserve (NFR-04): its hosts
-stay disabled until replace-node.sh switches to them.
+them; reality-key, which gives the Reality inbounds of an existing profile a new key pair and shortId after a
+node or its disk is compromised, and which every client survives only by refreshing its subscription; node,
+which adds another node on another VPS to the existing profile: the node and its two hosts, tagged with the node
+name, in the subscriptions at once; and reserve, the same as a warm reserve (NFR-04): its hosts stay disabled
+until replace-node.sh switches to them.
 
     python3 staging-panel-setup.py --token-file … --node-name FI1 --public-ip <node IP> --remark <name> \
         --country FI node
     python3 staging-panel-setup.py --token-file … --node-name RES1 --public-ip <reserve IP> --remark <name> \
         --country NL reserve
+    python3 staging-panel-setup.py --token-file … reality-key
 """
 import argparse
 import base64
@@ -34,7 +38,7 @@ import urllib.error
 import urllib.request
 
 INFRA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-STEPS = ("profile", "subscription", "node-key", "sni", "node", "reserve", "status")
+STEPS = ("profile", "subscription", "node-key", "sni", "reality-key", "node", "reserve", "status")
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("steps", nargs="*", help=f"any of {', '.join(STEPS)}")
@@ -52,6 +56,14 @@ parser.add_argument("--country", default="FR")
 parser.add_argument("--profile-name", default="stg")
 parser.add_argument("--profile-title", default="Mendeleev staging")
 parser.add_argument("--support-url", help="support-url header (step subscription)")
+parser.add_argument("--provider-id", help="Happ Provider ID (FR-PNL-17): with it the step subscription also sends the "
+                    "autoconnect headers (FR-PNL-19); Happ ignores them without a registered ID")
+parser.add_argument("--autoconnect-type", default="lowestdelay", choices=("lastused", "lowestdelay", "random"),
+                    help="which server Happ connects to on start (with --provider-id)")
+parser.add_argument("--ping-type", default="proxy-head", choices=("proxy", "proxy-head", "tcp", "icmp"),
+                    help="how Happ checks the servers: proxy-head sends a request through each one, so a node that "
+                    "accepts the connection but passes no data counts as down (with --provider-id)")
+parser.add_argument("--check-url", help="check-url-via-proxy: the URL of the proxy check (default: Happ's own)")
 parser.add_argument("--device-limit", type=int, default=3, help="HWID limit for users without their own")
 parser.add_argument("--template", default=os.path.join(INFRA, "xray", "config-profile.example.json"))
 parser.add_argument("--routing", default=os.path.join(INFRA, "routing", "happ-routing.json"))
@@ -145,6 +157,24 @@ if "subscription" in steps:
     # As infra/routing/build-routing.sh: compact JSON, base64, the happ://routing/add/ prefix.
     routing_header = "happ://routing/add/" + base64.b64encode(
         json.dumps(routing, ensure_ascii=False, separators=(",", ":")).encode()).decode()
+    headers = {
+        "profile-title": args.profile_title,
+        "profile-update-interval": "2",
+        "support-url": args.support_url,
+        "routing": routing_header,
+    }
+    if args.provider_id:
+        # Happ's app management (FR-PNL-19): connect on start to the server that answers fastest through the proxy,
+        # and check them all when the app opens. Only with a Provider ID registered for the subscription domain.
+        headers.update({
+            "providerid": args.provider_id,
+            "subscription-autoconnect": "true",
+            "subscription-autoconnect-type": args.autoconnect_type,
+            "subscription-ping-onopen-enabled": "true",
+            "ping-type": args.ping_type,
+        })
+        if args.check_url:
+            headers["check-url-via-proxy"] = args.check_url
     updated = call("PATCH", "/subscription-settings", {
         "uuid": settings["uuid"],
         "hwidSettings": {"enabled": True, "fallbackDeviceLimit": args.device_limit, "maxDevicesAnnounce": None},
@@ -157,12 +187,7 @@ if "subscription" in steps:
             "HWIDMaxDevicesExceeded": ["Превышен лимит устройств — сбросьте их в боте"],
             "HWIDNotSupported": ["Приложение не поддерживается — установите Happ"],
         },
-        "customResponseHeaders": {
-            "profile-title": args.profile_title,
-            "profile-update-interval": "2",
-            "support-url": args.support_url,
-            "routing": routing_header,
-        },
+        "customResponseHeaders": headers,
     })
     print(f"subscription settings: HWID {updated['hwidSettings']}, headers {sorted(updated['customResponseHeaders'])}")
 
@@ -200,6 +225,28 @@ if "sni" in steps:
     call("PATCH", "/config-profiles", {"uuid": profile["uuid"], "config": config})
     print(f"profile {args.profile_name}: {moved} Reality inbound(s) now use {args.sni}; clients get it with the next "
           f"subscription update")
+
+if "reality-key" in steps:
+    profile = next((p for p in call("GET", "/config-profiles")["configProfiles"] if p["name"] == args.profile_name), None)
+    if profile is None:
+        sys.exit(f"no config profile '{args.profile_name}'")
+    # Treat the key as read as soon as one node's disk is: every node runs this one profile, and the private key
+    # is what makes the inbound impossible to impersonate (ТЗ 31 «Секреты», runbooks/secret-leak.md). The panel
+    # generates the pair, so the private half stays in this process, as in step profile.
+    private_key = call("GET", "/system/tools/x25519/generate")["keypairs"][0]["privateKey"]
+    short_id = secrets.token_hex(8)
+    config = profile["config"]
+    rotated = []
+    for inbound in config["inbounds"]:
+        reality = inbound.get("streamSettings", {}).get("realitySettings")
+        if reality is not None:
+            reality.update(privateKey=private_key, shortIds=[short_id])
+            rotated.append(inbound["tag"])
+    if not rotated:
+        sys.exit(f"profile '{args.profile_name}' has no Reality inbound: nothing rotated")
+    call("PATCH", "/config-profiles", {"uuid": profile["uuid"], "config": config})
+    print(f"profile {args.profile_name}: new Reality key pair and shortId on {', '.join(sorted(rotated))}; "
+          f"nodes get it from the panel, clients only by refreshing the subscription — until then none connects")
 
 if "node" in steps or "reserve" in steps:
     require("public-ip")

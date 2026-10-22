@@ -1,13 +1,16 @@
 namespace Mendeleev.Domain.Common
 {
     /// <summary>
-    /// A setting staff change from the bot at runtime, kept across restarts: configuration stays the default,
-    /// the database holds what an admin chose. Today only the active aggregator (FR-PAY-14).
+    /// A setting kept across restarts: configuration stays the default, the database holds what an admin chose (the
+    /// active aggregator, FR-PAY-14) or what the service did (the last automatic node replacement, FR-NODE-18).
     /// </summary>
     public sealed class ServiceSetting
     {
         /// <summary>The aggregator new payments go to first; empty — the one from <c>Payments:ActiveProvider</c>.</summary>
         public const string ActivePaymentProvider = "payments.active_provider";
+
+        /// <summary>When the node guard last switched a node to the reserve (FR-NODE-18): the cooldown counts from it.</summary>
+        public const string NodeGuardLastReplacement = "nodeguard.last_replacement";
 
         private ServiceSetting() { }
 

@@ -26,9 +26,9 @@
 (common) {
 	encode zstd gzip
 	header -Server
-	# /metrics is internal only (ТЗ 30): never proxied.
-	@metrics path /metrics /metrics/*
-	respond @metrics 404
+	# /metrics and /internal/* (Alertmanager's webhook) are internal only (ТЗ 30): never proxied.
+	@internal path /metrics /metrics/* /internal/*
+	respond @internal 404
 }
 
 # Access log: IP and time of the request, kept 7 days (ТЗ 31, «Логи и приватность»). Headers are dropped:

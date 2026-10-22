@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Mendeleev.Application.Abstractions.Messaging;
 using Mendeleev.Application.Admin.Stats;
+using Mendeleev.Application.Panel.NodeGuard;
 using Mendeleev.Application.Panel.Reconciliation;
 using Mendeleev.Application.Panel.Traffic;
 using Mendeleev.Application.Payments.Reconciliation;
@@ -75,4 +76,7 @@ namespace Mendeleev.Infrastructure.BackgroundJobs
 
     internal sealed class DailySummaryJob(IServiceScopeFactory f, ILogger<DailySummaryJob> l)
         : CommandJob<DailySummaryCommand, int>(f, l);
+
+    internal sealed class NodeGuardJob(IServiceScopeFactory f, ILogger<NodeGuardJob> l)
+        : CommandJob<CheckNodesCommand, NodeCheckSummary>(f, l);
 }

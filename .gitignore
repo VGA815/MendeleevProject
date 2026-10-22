@@ -27,6 +27,9 @@ deploy/.env
 deploy/panel/.env
 secrets/
 deploy/telegram-tunnel/keys/
+# Node addresses for Prometheus live on the server only
+deploy/monitoring/targets/*.yml
+!deploy/monitoring/targets/*.example.yml
 *.pem
 *.key
 !infra/**/*.key.example

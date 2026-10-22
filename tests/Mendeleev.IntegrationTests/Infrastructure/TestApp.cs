@@ -19,10 +19,15 @@ using Testcontainers.PostgreSql;
 
 namespace Mendeleev.IntegrationTests.Infrastructure
 {
-    /// <summary>One PostgreSQL container for the whole run; every test gets its own database.</summary>
+    /// <summary>
+    /// One PostgreSQL container for the whole run; every test gets its own database. Npgsql keeps a pool per
+    /// database with idle connections for minutes, so the default limit of 100 clients runs out within one run.
+    /// </summary>
     public sealed class PostgresFixture : IAsyncLifetime
     {
-        public PostgreSqlContainer Container { get; } = new PostgreSqlBuilder("postgres:17-alpine").Build();
+        public PostgreSqlContainer Container { get; } = new PostgreSqlBuilder("postgres:17-alpine")
+            .WithCommand("-c", "max_connections=500")
+            .Build();
 
         public Task InitializeAsync() => Container.StartAsync();
 

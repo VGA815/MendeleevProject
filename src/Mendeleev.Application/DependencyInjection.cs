@@ -7,6 +7,7 @@ using Mendeleev.Application.Admin.Users;
 using Mendeleev.Application.Configuration;
 using Mendeleev.Application.Notifications;
 using Mendeleev.Application.Panel;
+using Mendeleev.Application.Panel.NodeGuard;
 using Mendeleev.Application.Payments;
 using Mendeleev.Application.Subscriptions.Trial;
 using Mendeleev.SharedKernel;
@@ -49,6 +50,7 @@ namespace Mendeleev.Application
             services.AddOptions<SubscriptionOptions>();
             services.AddOptions<PaymentOptions>();
             services.AddOptions<AnomalyOptions>();
+            services.AddOptions<NodeGuardOptions>();
 
             services.AddScoped<INotificationScheduler, NotificationScheduler>();
             services.AddScoped<IPanelSynchronizer, PanelSynchronizer>();
@@ -57,6 +59,7 @@ namespace Mendeleev.Application
             services.AddScoped<IStaffAuthorizer, StaffAuthorizer>();
             services.AddScoped<IUserCardBuilder, UserCardBuilder>();
             services.AddScoped<IBroadcastDeliveryService, BroadcastDeliveryService>();
+            services.AddSingleton<NodeGuardState>();
 
             return services;
         }

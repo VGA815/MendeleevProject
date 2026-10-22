@@ -4,6 +4,7 @@ using Mendeleev.Application.Abstractions.Alerts;
 using Mendeleev.Application.Abstractions.Data;
 using Mendeleev.Application.Abstractions.Panel;
 using Mendeleev.Application.Abstractions.Payments;
+using Mendeleev.Application.Abstractions.Probes;
 using Mendeleev.Application.Abstractions.Telegram;
 using Mendeleev.Application.Configuration;
 using Mendeleev.Infrastructure.Accounts;
@@ -17,6 +18,7 @@ using Mendeleev.Infrastructure.Panel;
 using Mendeleev.Infrastructure.Payments;
 using Mendeleev.Infrastructure.Payments.Fake;
 using Mendeleev.Infrastructure.Payments.TryBit;
+using Mendeleev.Infrastructure.Probes;
 using Mendeleev.Infrastructure.Seeding;
 using Mendeleev.Infrastructure.Telegram;
 using Mendeleev.Infrastructure.Time;
@@ -43,6 +45,7 @@ namespace Mendeleev.Infrastructure
                 .AddOptionsBinding(configuration)
                 .AddOutboxProcessing(configuration)
                 .AddPanel(configuration)
+                .AddProbes(configuration)
                 .AddPayments(configuration)
                 .AddTelegram(configuration)
                 .AddAlerts()
@@ -88,6 +91,7 @@ namespace Mendeleev.Infrastructure
             services.Configure<SubscriptionOptions>(configuration.GetSection(SubscriptionOptions.SectionName));
             services.Configure<PaymentOptions>(configuration.GetSection(PaymentOptions.SectionName));
             services.Configure<AnomalyOptions>(configuration.GetSection(AnomalyOptions.SectionName));
+            services.Configure<NodeGuardOptions>(configuration.GetSection(NodeGuardOptions.SectionName));
             services.Configure<AlertOptions>(configuration.GetSection(AlertOptions.SectionName));
             return services;
         }
@@ -100,12 +104,15 @@ namespace Mendeleev.Infrastructure
 
             if (configuration.GetValue<bool>("Remnawave:UseInMemory"))
             {
-                services.AddSingleton<IPanelClient>(new InMemoryPanelClient(
-                    configuration.GetValue<string>("Remnawave:InMemorySubscriptionBaseUrl") ?? "https://sub.localhost"));
+                var panel = new InMemoryPanelClient(
+                    configuration.GetValue<string>("Remnawave:InMemorySubscriptionBaseUrl") ?? "https://sub.localhost");
+                services.AddSingleton<IPanelClient>(panel);
+                services.AddSingleton<IPanelInventory>(panel);
                 return services;
             }
 
             services.AddRemnawaveClient();
+            services.AddRemnawaveInventoryClient();
             return services;
         }
 
@@ -140,6 +147,65 @@ namespace Mendeleev.Infrastructure
             });
 
             return builder;
+        }
+
+        /// <summary>
+        /// The node guard's panel calls with their own token (FR-NODE-18). Without <c>Remnawave:InventoryToken</c> the
+        /// client says it is not configured and the guard does nothing. The contract tests use this registration too.
+        /// </summary>
+        internal static IHttpClientBuilder AddRemnawaveInventoryClient(this IServiceCollection services)
+        {
+            IHttpClientBuilder builder = services
+                .AddHttpClient<IPanelInventory, RemnawaveInventoryClient>(RemnawaveInventoryClient.HttpClientName, (sp, client) =>
+                {
+                    RemnawaveOptions options = sp.GetRequiredService<IOptions<RemnawaveOptions>>().Value;
+                    if (!string.IsNullOrWhiteSpace(options.BaseUrl))
+                    {
+                        client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
+                    }
+                    if (!string.IsNullOrWhiteSpace(options.InventoryToken))
+                    {
+                        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", options.InventoryToken);
+                    }
+                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                });
+
+            // Enabling or disabling the same hosts twice ends the same: the bulk calls may be retried too.
+            builder.AddStandardResilienceHandler(resilience =>
+            {
+                resilience.Retry.MaxRetryAttempts = 2;
+                resilience.AttemptTimeout.Timeout = TimeSpan.FromSeconds(10);
+                resilience.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(30);
+            });
+
+            return builder;
+        }
+
+        /// <summary>The node guard's probes: TCP from this server and Globalping probes in Russia (FR-NODE-18).</summary>
+        private static IServiceCollection AddProbes(this IServiceCollection services, IConfiguration configuration)
+        {
+            services.Configure<ProbeOptions>(configuration.GetSection(ProbeOptions.SectionName));
+            services.AddSingleton<ILocalProbe, TcpLocalProbe>();
+
+            // A measurement created twice costs only quota, so its POST may be retried as well.
+            services.AddHttpClient<IRemoteProbes, GlobalpingRemoteProbes>(GlobalpingRemoteProbes.HttpClientName, (sp, client) =>
+                {
+                    ProbeOptions options = sp.GetRequiredService<IOptions<ProbeOptions>>().Value;
+                    client.BaseAddress = new Uri(options.GlobalpingUrl.TrimEnd('/') + "/");
+                    if (!string.IsNullOrWhiteSpace(options.GlobalpingToken))
+                    {
+                        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", options.GlobalpingToken);
+                    }
+                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                })
+                .AddStandardResilienceHandler(resilience =>
+                {
+                    resilience.Retry.MaxRetryAttempts = 2;
+                    resilience.AttemptTimeout.Timeout = TimeSpan.FromSeconds(10);
+                    resilience.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(30);
+                });
+
+            return services;
         }
 
         private static IServiceCollection AddPayments(this IServiceCollection services, IConfiguration configuration)

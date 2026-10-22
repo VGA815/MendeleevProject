@@ -1,0 +1,12 @@
+# Copy to nodes.yml on the server (it stays out of Git): node_exporter of every node, the node's code as
+# in the panel and the inventory. Prometheus re-reads the file every minute. A node replaced by the reserve
+# keeps its line until it is retired; the reserve has one from the start.
+- targets: ["192.0.2.11:9100"]
+  labels:
+    node: NL1
+- targets: ["192.0.2.12:9100"]
+  labels:
+    node: DE1
+- targets: ["192.0.2.21:9100"]
+  labels:
+    node: RES1

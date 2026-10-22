@@ -1,0 +1,10 @@
+# Dashboards from deploy/monitoring/grafana/dashboards; edits in the UI are not kept: change the JSON in Git.
+apiVersion: 1
+providers:
+  - name: mendeleev
+    folder: Mendeleev
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards

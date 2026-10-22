@@ -28,11 +28,12 @@ if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
     app.ApplyMigrations();
 }
 
-// /metrics is internal only: Caddy does not route it, and a proxied request is refused here too. This runs
-// before UseForwardedHeaders, which consumes X-Forwarded-For.
+// /metrics and /internal/* (Alertmanager's webhook) are internal only: Caddy does not route them, and a proxied
+// request is refused here too. This runs before UseForwardedHeaders, which consumes X-Forwarded-For.
 app.Use((context, next) =>
 {
-    if (context.Request.Path.StartsWithSegments("/metrics") && context.Request.Headers.ContainsKey("X-Forwarded-For"))
+    if ((context.Request.Path.StartsWithSegments("/metrics") || context.Request.Path.StartsWithSegments("/internal"))
+        && context.Request.Headers.ContainsKey("X-Forwarded-For"))
     {
         context.Response.StatusCode = StatusCodes.Status404NotFound;
         return Task.CompletedTask;

@@ -35,6 +35,9 @@ namespace Mendeleev.ContractTests
         /// <summary>The token the service gets in production (README, «Развёртывание»).</summary>
         public static readonly string[] ServiceTokenScopes = ["users:*", "hwid-user-devices:*"];
 
+        /// <summary>The node guard's token, <c>Remnawave__InventoryToken</c> (FR-NODE-18).</summary>
+        public static readonly string[] InventoryTokenScopes = ["nodes:read", "hosts:*"];
+
         public const string SubscriptionDomain = "sub.contract.test";
 
         private const string DatabasePassword = "remnawave-contract";
@@ -47,6 +50,7 @@ namespace Mendeleev.ContractTests
         private IContainer? _backend;
         private ServiceProvider? _services;
         private string _serviceToken = string.Empty;
+        private string _inventoryToken = string.Empty;
 
         public static string Tag => Environment.GetEnvironmentVariable("REMNAWAVE_TAG") is { Length: > 0 } tag ? tag : PinnedTag();
 
@@ -66,6 +70,11 @@ namespace Mendeleev.ContractTests
         public HttpClient Admin { get; private set; } = null!;
 
         public IPanelClient Client => _services!.GetRequiredService<IPanelClient>();
+
+        /// <summary>The node guard's adapter, through the token with only <see cref="InventoryTokenScopes"/>.</summary>
+        public IPanelInventory Inventory => _services!.GetRequiredService<IPanelInventory>();
+
+        public string InventoryToken => _inventoryToken;
 
         public IPanelWebhookParser WebhookParser => _services!.GetRequiredService<IPanelWebhookParser>();
 
@@ -134,7 +143,8 @@ namespace Mendeleev.ContractTests
             Admin.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", adminToken);
 
             BasicSquad = await CreateSquadAsync("basic");
-            _serviceToken = await CreateApiTokenAsync(ServiceTokenScopes);
+            _serviceToken = await CreateApiTokenAsync("mendeleev-contract", ServiceTokenScopes);
+            _inventoryToken = await CreateApiTokenAsync("mendeleev-contract-inventory", InventoryTokenScopes);
 
             _services = BuildAdapter(pageSize: 250);
         }
@@ -178,6 +188,14 @@ namespace Mendeleev.ContractTests
             throw new TimeoutException($"No matching panel webhook in {timeout}; received {Webhooks.Count}.");
         }
 
+        /// <summary>An admin call as the operator makes it in the UI; returns the envelope's <c>response</c>.</summary>
+        public async Task<JsonElement> AdminAsync(HttpMethod method, string path, object? body = null)
+        {
+            using var request = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body) };
+            using HttpResponseMessage response = await Admin.SendAsync(request);
+            return await ReadResponseAsync(response, $"{method} {path}");
+        }
+
         /// <summary>Registers a device as the client app would on a subscription request.</summary>
         public async Task AddDeviceAsync(int panelUserId, string hwid, string platform)
         {
@@ -202,13 +220,15 @@ namespace Mendeleev.ContractTests
             {
                 BaseUrl = BaseUrl,
                 ApiToken = _serviceToken,
+                InventoryToken = _inventoryToken,
                 WebhookSecret = _webhookSecret,
                 PageSize = pageSize,
             }));
             services.AddSingleton<IPanelWebhookParser, RemnawaveWebhookParser>();
 
-            // The production pipeline; Caddy in front of the panel adds what the handler adds here.
+            // The production pipelines; Caddy in front of the panel adds what the handler adds here.
             services.AddRemnawaveClient().AddHttpMessageHandler(() => new ReverseProxyHeaders());
+            services.AddRemnawaveInventoryClient().AddHttpMessageHandler(() => new ReverseProxyHeaders());
             return services.BuildServiceProvider();
         }
 
@@ -225,9 +245,9 @@ namespace Mendeleev.ContractTests
             return (await ReadResponseAsync(response, "create squad")).GetProperty("uuid").GetGuid();
         }
 
-        private async Task<string> CreateApiTokenAsync(string[] scopes)
+        private async Task<string> CreateApiTokenAsync(string name, string[] scopes)
         {
-            using HttpResponseMessage response = await Admin.PostAsJsonAsync("api/tokens", new { name = "mendeleev-contract", expiresInDays = 1, scopes });
+            using HttpResponseMessage response = await Admin.PostAsJsonAsync("api/tokens", new { name, expiresInDays = 1, scopes });
             return (await ReadResponseAsync(response, "create API token")).GetProperty("token").GetString()!;
         }
 

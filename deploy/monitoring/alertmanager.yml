@@ -1,0 +1,15 @@
+# Alertmanager of the profile «monitoring»: every alert goes to the service, which sends it to the alert bot and
+# ntfy like its own (ТЗ 30, «Алерты»; POST /internal/alertmanager, reachable only inside the compose network).
+route:
+  receiver: mendeleev
+  group_by: ["alertname", "node"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: mendeleev
+    webhook_configs:
+      - url: http://app:8080/internal/alertmanager
+        send_resolved: true
+        max_alerts: 20

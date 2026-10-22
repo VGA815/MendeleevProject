@@ -1,0 +1,91 @@
+# promtool test rules (make test-alerts, CI lint-infra): the alerts that are easy to get wrong. Time 0 is
+# 1970-01-01 00:00 UTC, so eval_time is also the hour of the day in UTC.
+rule_files:
+  - alerts.yml
+evaluation_interval: 1m
+tests:
+  # Attempts, no successes: quiet at night (04:00 UTC), firing in the day (07:00 UTC).
+  - interval: 1m
+    input_series:
+      - series: 'payments_total{status="pending", provider="trybit", job="app", instance="app:8080"}'
+        values: '0+1x500'
+      - series: 'payments_total{status="succeeded", provider="trybit", job="app", instance="app:8080"}'
+        values: '0x500'
+      - series: 'payments_total{status="succeeded", provider="manual", job="app", instance="app:8080"}'
+        values: '0+1x500'
+    alert_rule_test:
+      - eval_time: 4h
+        alertname: NoSuccessfulPayments
+        exp_alerts: []
+      - eval_time: 7h
+        alertname: NoSuccessfulPayments
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              audience: admin
+            exp_annotations:
+              summary: "За 3 часа ни одной успешной оплаты, хотя пользователи пытались платить."
+              description: "Проверьте агрегатор и его вебхуки; запасной агрегатор — /aggregator в боте (runbook payments-down)."
+  # Attempts and successes: quiet.
+  - interval: 1m
+    input_series:
+      - series: 'payments_total{status="pending", provider="trybit"}'
+        values: '0+1x500'
+      - series: 'payments_total{status="succeeded", provider="trybit"}'
+        values: '0+1x500'
+    alert_rule_test:
+      - eval_time: 7h
+        alertname: NoSuccessfulPayments
+        exp_alerts: []
+  # One transport down while the other works: pending at 10m, firing at 17m; a whole node down is not this alert.
+  - interval: 1m
+    input_series:
+      - series: 'transport_probe_up{node="DE1", transport="DE1 443", job="app", instance="app:8080"}'
+        values: '1x5 0x20'
+      - series: 'transport_probe_up{node="DE1", transport="DE1 8443", job="app", instance="app:8080"}'
+        values: '1x25'
+      - series: 'node_probe_up{node="DE1", job="app", instance="app:8080"}'
+        values: '1x25'
+      - series: 'transport_probe_up{node="NL1", transport="NL1 443", job="app", instance="app:8080"}'
+        values: '1x5 0x20'
+      - series: 'node_probe_up{node="NL1", job="app", instance="app:8080"}'
+        values: '1x5 0x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: TransportUnreachableFromRussia
+        exp_alerts: []
+      - eval_time: 17m
+        alertname: TransportUnreachableFromRussia
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              node: DE1
+              transport: DE1 443
+              job: app
+              instance: app:8080
+            exp_annotations:
+              summary: "Транспорт «DE1 443» ноды DE1 не отвечает из нашего ДЦ 10 минут, другие транспорты ноды работают."
+              description: "Проверьте порт и SNI транспорта; при блокировке — смена порта или SNI (runbook node-blocked)."
+  # A blocked node's exporter is not ExporterDown; another one is.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="nodes", node="NL1", instance="192.0.2.11:9100"}'
+        values: '0x20'
+      - series: 'node_probe_up{node="NL1", job="app", instance="app:8080"}'
+        values: '0x20'
+      - series: 'up{job="nodes", node="DE1", instance="192.0.2.12:9100"}'
+        values: '0x20'
+      - series: 'node_probe_up{node="DE1", job="app", instance="app:8080"}'
+        values: '1x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: ExporterDown
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              node: DE1
+              job: nodes
+              instance: 192.0.2.12:9100
+            exp_annotations:
+              summary: "Prometheus 10 минут не получает метрики DE1."
+              description: "node_exporter остановлен (systemctl status node_exporter) или ufw ноды не пускает порт 9100 с управляющего VPS."

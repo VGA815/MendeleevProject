@@ -32,6 +32,9 @@ namespace Mendeleev.Domain.Audit
         public const string TorrentBlockerReport = "abuse.torrent_blocker";
         public const string AccountsMerged = "account.merged";
 
+        /// <summary>The node guard switched a node blocked from Russia to the warm reserve (FR-NODE-18).</summary>
+        public const string NodeAutoReplace = "nodes.auto_replace";
+
         /// <summary>The term grew by a promo code's bonus days (ТЗ 22: the term changes only with an audit trail).</summary>
         public const string PromoBonus = "promo.bonus";
     }

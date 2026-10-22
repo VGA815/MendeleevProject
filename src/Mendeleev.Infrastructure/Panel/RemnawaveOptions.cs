@@ -10,6 +10,12 @@ namespace Mendeleev.Infrastructure.Panel
         /// <summary>A token created in the panel for this service only (FR-PNL-01).</summary>
         public string ApiToken { get; init; } = string.Empty;
 
+        /// <summary>
+        /// The node guard's token: <c>nodes:read</c> and <c>hosts:*</c> only (FR-NODE-18). Empty — the guard is not
+        /// configured, and the service token keeps its users-only scopes.
+        /// </summary>
+        public string InventoryToken { get; init; } = string.Empty;
+
         /// <summary>Same value as <c>WEBHOOK_SECRET_HEADER</c> in the panel environment.</summary>
         public string WebhookSecret { get; init; } = string.Empty;
 

@@ -1,0 +1,95 @@
+# Alerts of ТЗ 30, «Алерты», that the service does not raise itself. The service already alerts on: a whole node
+# unreachable from Russia (the node guard, FR-NODE-18), rejected payment webhooks (> 3 in 10 minutes), the
+# reconciliation finding drift, outbox tasks that gave up, the panel down, a node lost by the panel, a failed panel
+# login. «Управляющая часть недоступна» stays with Uptime Kuma abroad: an alert about this VPS cannot leave it.
+#
+# Labels: severity — critical | warning | info; audience: admin — the admin gets it as well as the tech admin.
+# Texts are what the alert bot shows: summary, then description.
+groups:
+  - name: nodes
+    rules:
+      # «Нода или транспорт недоступны из РФ»: a transport (host) that failed two checks in a row while its node
+      # still answers on another one. The node guard checks every 5 minutes.
+      - alert: TransportUnreachableFromRussia
+        expr: transport_probe_up == 0 and on (node) node_probe_up == 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Транспорт «{{ $labels.transport }}» ноды {{ $labels.node }} не отвечает из нашего ДЦ 10 минут, другие транспорты ноды работают."
+          description: "Проверьте порт и SNI транспорта; при блокировке — смена порта или SNI (runbook node-blocked)."
+
+      # «Загрузка канала ноды > 70 % в пик». 1e9 — 1 Гбит/с, порт нод: поменяйте, если у хостера другой.
+      - alert: NodeChannelLoad
+        expr: >
+          max by (node, instance) (
+            rate(node_network_transmit_bytes_total{job="nodes", device!~"lo|docker.*|veth.*|br-.*|virbr.*"}[5m])
+          ) * 8 > 0.7 * 1e9
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Канал ноды {{ $labels.node }} загружен больше чем на 70 %: {{ $value | humanize }}бит/с исходящих уже 15 минут."
+          description: "Добавьте ноду или перенесите часть пользователей на другую (NFR-06)."
+
+  - name: hosts
+    rules:
+      # «Место на диске < 15 %»: this VPS and the nodes.
+      - alert: DiskSpaceLow
+        expr: >
+          node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs|nsfs|fuse.*", mountpoint!~"/boot.*"}
+          / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs|nsfs|fuse.*", mountpoint!~"/boot.*"} < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "На {{ $labels.node }} свободно {{ $value | humanizePercentage }} диска {{ $labels.mountpoint }} (порог 15 %)."
+          description: "Обычно это образы Docker (docker image prune -a) или логи контейнеров (docker system df)."
+
+      # Monitoring that went blind. A node blocked from Russia cannot be scraped from here either: that is the
+      # node guard's alert, not this one.
+      - alert: ExporterDown
+        expr: up{job=~"nodes|management"} == 0 unless on (node) node_probe_up == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus 10 минут не получает метрики {{ $labels.node }}."
+          description: "node_exporter остановлен (systemctl status node_exporter) или ufw ноды не пускает порт 9100 с управляющего VPS."
+
+  - name: service
+    rules:
+      # «Задача синхронизации ждёт > 5 мин».
+      - alert: OutboxWaiting
+        expr: outbox_oldest_age_seconds > 300
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Задача синхронизации ждёт уже {{ $value | humanizeDuration }} (порог 5 минут)."
+          description: "Обычно недоступна панель или Telegram: /health/ready и логи app (runbook panel-down)."
+
+      # «Ошибки вебхуков оплаты > 3 за 10 мин»: rejected signatures the service reports itself; here — its own
+      # failures on the payment webhook.
+      - alert: PaymentWebhookFailures
+        expr: >
+          sum(increase(http_server_request_duration_seconds_count{http_route=~"/?webhooks/payments/.*", http_response_status_code=~"5.."}[10m])) > 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "Вебхук оплаты отвечает ошибкой сервера: {{ $value | printf \"%.0f\" }} раз за 10 минут."
+          description: "Агрегатор повторит доставку, проверка каждые 5 минут и сверка в 04:00 подберут пропущенное; причина — в логах app (runbook payments-down)."
+
+      # «Падение числа успешных оплат»: none in 3 hours of the day (09–21 МСК = 06–18 UTC) while people tried.
+      - alert: NoSuccessfulPayments
+        expr: >
+          (sum(increase(payments_total{status=~"pending|create_failed"}[3h])) > 0)
+          unless on () (sum(increase(payments_total{status="succeeded", provider!="manual"}[3h])) > 0)
+          and on () (hour() >= 6 and hour() < 18)
+        for: 10m
+        labels:
+          severity: critical
+          audience: admin
+        annotations:
+          summary: "За 3 часа ни одной успешной оплаты, хотя пользователи пытались платить."
+          description: "Проверьте агрегатор и его вебхуки; запасной агрегатор — /aggregator в боте (runbook payments-down)."

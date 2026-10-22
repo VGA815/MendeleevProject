@@ -79,6 +79,11 @@ jobs:
         run: |
           docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" -e SITE_DOMAIN=a.test -e SITE_DOMAIN_RESERVE=b.test -e SUB_DOMAIN=c.test -e SUB_DOMAIN_RESERVE=d.test -e WEBHOOK_DOMAIN=e.test -e ACME_EMAIL=x@a.test caddy:2.10-alpine caddy validate --config /etc/caddy/Caddyfile
           docker run --rm -v "$PWD/deploy/panel/Caddyfile:/etc/caddy/Caddyfile:ro" -e PANEL_DOMAIN=p.test -e PANEL_PORT=9443 -e PANEL_ALLOWED_IPS="192.0.2.1 192.0.2.2" caddy:2.10-alpine caddy validate --config /etc/caddy/Caddyfile
+      - name: Monitoring configs and alert rules
+        run: |
+          docker run --rm --entrypoint /bin/promtool -v "$PWD/deploy/monitoring:/etc/prometheus:ro" prom/prometheus:v3.15.0 check config /etc/prometheus/prometheus.yml
+          docker run --rm --entrypoint /bin/promtool -v "$PWD/deploy/monitoring:/etc/prometheus:ro" prom/prometheus:v3.15.0 test rules /etc/prometheus/alerts.test.yml
+          docker run --rm --entrypoint /bin/amtool -v "$PWD/deploy/monitoring:/etc/alertmanager:ro" prom/alertmanager:v0.34.1 check-config /etc/alertmanager/alertmanager.yml
 
   images:
     needs: [build-test, contract-tests, lint-infra]

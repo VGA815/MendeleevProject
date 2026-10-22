@@ -7,10 +7,12 @@ namespace Mendeleev.Infrastructure.Panel
     /// <summary>
     /// A panel that lives in memory: for running the bot locally without Remnawave and for tests
     /// (<c>Remnawave:UseInMemory = true</c>). Mimics the contract that matters: ids, short UUIDs, the
-    /// "future expireAt only" rule, conflicts on username, devices.
+    /// "future expireAt only" rule, conflicts on username, devices; and nodes and hosts for the node guard.
     /// </summary>
-    public sealed class InMemoryPanelClient : IPanelClient
+    public sealed class InMemoryPanelClient : IPanelClient, IPanelInventory
     {
+        private readonly ConcurrentDictionary<Guid, PanelNode> _nodes = new();
+        private readonly ConcurrentDictionary<Guid, PanelHost> _hosts = new();
         private readonly ConcurrentDictionary<int, PanelUser> _users = new();
         private readonly ConcurrentDictionary<int, List<PanelDevice>> _devices = new();
         private string _subscriptionBaseUrl;
@@ -169,6 +171,53 @@ namespace Mendeleev.Infrastructure.Panel
         /// <summary>Test helper: someone edits the user in the panel UI.</summary>
         public void Tamper(int panelUserId, Func<PanelUser, PanelUser> change) =>
             _users[panelUserId] = change(_users[panelUserId]);
+
+        public bool IsConfigured => true;
+
+        public IReadOnlyCollection<PanelHost> Hosts => _hosts.Values.ToList();
+
+        public Task<IReadOnlyList<PanelNode>> GetNodesAsync(CancellationToken cancellationToken)
+        {
+            ThrowIfDown();
+            return Task.FromResult<IReadOnlyList<PanelNode>>(_nodes.Values.ToList());
+        }
+
+        public Task<IReadOnlyList<PanelHost>> GetHostsAsync(CancellationToken cancellationToken)
+        {
+            ThrowIfDown();
+            return Task.FromResult<IReadOnlyList<PanelHost>>(_hosts.Values.ToList());
+        }
+
+        public Task SetHostsDisabledAsync(IReadOnlyCollection<Guid> hostUuids, bool disabled, CancellationToken cancellationToken)
+        {
+            ThrowIfDown();
+            foreach (Guid uuid in hostUuids)
+            {
+                _hosts[uuid] = _hosts[uuid] with { IsDisabled = disabled };
+            }
+            return Task.CompletedTask;
+        }
+
+        /// <summary>Test helper: a node and its hosts, one per address and port, tagged with the node name.</summary>
+        public void AddNode(string name, bool connected, bool hostsDisabled, params (string Address, int Port)[] hosts)
+        {
+            var node = new PanelNode(Guid.NewGuid(), name, connected, IsDisabled: false);
+            _nodes[node.Uuid] = node;
+            foreach ((string address, int port) in hosts)
+            {
+                var host = new PanelHost(Guid.NewGuid(), $"{name} {port}", address, port, hostsDisabled, [name]);
+                _hosts[host.Uuid] = host;
+            }
+        }
+
+        /// <summary>Test helper: the panel loses or regains the node.</summary>
+        public void SetNodeConnected(string name, bool connected)
+        {
+            foreach ((Guid key, PanelNode node) in _nodes.Where(n => n.Value.Name == name))
+            {
+                _nodes[key] = node with { IsConnected = connected };
+            }
+        }
 
         private void ThrowIfDown()
         {

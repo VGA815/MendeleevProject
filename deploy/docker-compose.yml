@@ -1,5 +1,6 @@
 # Management VPS in the Russian DC (ТЗ 40, «Управляющий VPS: состав»):
-# caddy, app, postgres, subscription-page, backup. Secrets only in deploy/.env (chmod 600), never in Git.
+# caddy, app, postgres, subscription-page, backup; monitoring in the profile «monitoring».
+# Secrets only in deploy/.env (chmod 600), never in Git.
 #
 # Release (ТЗ 40, «Сборка и поставка») — ./scripts/release.sh <tag>:
 #   docker compose pull app migrator
@@ -149,8 +150,82 @@ services:
       - ./telegram-tunnel/keys:/keys:ro
     logging: *logging
 
+  # Monitoring (ТЗ 40, «Мониторинг и алерты»; этап 1.5): COMPOSE_PROFILES=monitoring, configs in ./monitoring.
+  # Prometheus scrapes the app, this VPS and the nodes' node_exporter; Alertmanager hands alerts to the app, which
+  # sends them to the alert bot and ntfy. Grafana only through an SSH tunnel:
+  # ssh -L 3001:127.0.0.1:3001 <this VPS>, then http://localhost:3001 (user admin).
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --storage.tsdb.retention.size=5GB
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./monitoring/targets:/etc/prometheus/targets:ro
+      - prometheus-data:/prometheus
+    logging: *logging
+
+  alertmanager:
+    image: prom/alertmanager:v0.34.1
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      # One instance: no cluster port.
+      - --cluster.listen-address=
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    logging: *logging
+
+  grafana:
+    image: grafana/grafana:12.4.13
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    # Without a password Grafana would start with admin/admin: it refuses to start instead. The password applies at
+    # the first start; later: docker compose exec grafana grafana cli admin reset-admin-password --password-from-stdin
+    entrypoint: ["/bin/sh", "-c", "[ -n \"$$GF_SECURITY_ADMIN_PASSWORD\" ] || { echo 'GRAFANA_ADMIN_PASSWORD is not set in .env' >&2; exit 1; }; exec /run.sh"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-}
+      GF_SERVER_ROOT_URL: http://localhost:3001
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_LOG_LEVEL: warn
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    logging: *logging
+
+  # This VPS's CPU, memory and disks; the nodes run node_exporter as a systemd service (infra/ansible).
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    pid: host
+    command: ["--path.rootfs=/host"]
+    volumes:
+      - /:/host:ro,rslave
+    logging: *logging
+
 volumes:
   caddy-data:
   caddy-config:
   app-keys:
   postgres-data:
+  prometheus-data:
+  alertmanager-data:
+  grafana-data:

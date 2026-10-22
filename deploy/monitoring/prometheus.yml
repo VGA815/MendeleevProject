@@ -1,0 +1,45 @@
+# Prometheus of the profile «monitoring» on the management VPS (ТЗ 40, «Мониторинг и алерты»; этап 1.5).
+# Rules: alerts.yml; alerts go to Alertmanager and from it to the alert bot through the service.
+
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  # The service: ТЗ 30, «Метрики», and the node guard's probes (FR-NODE-18). /metrics answers only inside
+  # the compose network.
+  - job_name: app
+    static_configs:
+      - targets: ["app:8080"]
+
+  # This VPS: CPU, memory, disk (the container sees the host's file systems through /host).
+  - job_name: management
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels:
+          node: management
+
+  # node_exporter of the nodes (infra/ansible, role node_exporter): port 9100, open only to this VPS (monitoring_ip).
+  # The list lives on the server only, in targets/nodes.yml (see targets/nodes.example.yml), and is re-read
+  # without a restart.
+  - job_name: nodes
+    scrape_interval: 60s
+    file_sd_configs:
+      - files: ["/etc/prometheus/targets/nodes.yml"]
+        refresh_interval: 1m
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: alertmanager
+    static_configs:
+      - targets: ["alertmanager:9093"]
